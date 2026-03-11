@@ -1,69 +1,25 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import requests
 import pandas as pd
 
-# 1. Configuración de App Nativa
-st.set_page_config(
-    page_title="Precios Combustible", 
-    page_icon="⛽", 
-    layout="centered", 
-    initial_sidebar_state="collapsed"
-)
+# 1. Configuración limpia
+st.set_page_config(page_title="Precios Combustible", page_icon="⛽", layout="centered")
 
-# 2. CSS ESTRICTO: Ajuste de anchos y bloqueo de saltos de línea
+# CSS Mínimo solo para quitar márgenes y ocultar menús de Streamlit, sin forzar columnas
 st.markdown("""
     <style>
         #MainMenu, footer, header {visibility: hidden;}
-        
-        /* Contenedor principal sin márgenes laterales que roben espacio */
         .block-container {
-            padding: 1rem 0.2rem 0rem 0.2rem !important;
-            max-width: 100vw !important;
-            overflow-x: hidden !important; /* Prohíbe terminantemente el scroll horizontal */
+            padding: 1rem !important;
         }
-        
-        /* Mantiene los elementos de la fila en una sola línea */
-        div[data-testid="stHorizontalBlock"] {
-            flex-wrap: nowrap !important; 
-            align-items: center !important;
-            gap: 0.2rem !important;
-        }
-        
-        /* Botones optimizados para encajar a la derecha */
-        .stButton>button, .stLinkButton>a {
-            padding: 0.3rem 0.1rem !important;
-            min-height: 0px !important;
-            line-height: 1.2 !important;
-            border-radius: 6px;
-            font-size: 0.8rem !important;
-            width: 100%;
-        }
-        
         hr {
-            margin: 0.4em 0em !important;
-            border-top: 1px solid #e0e0e0;
-        }
-        
-        div[data-baseweb="select"] > div {
-            border-radius: 8px !important;
-            border: 1px solid #ff4b4b !important;
+            margin: 1rem 0 !important;
         }
     </style>
 """, unsafe_allow_html=True)
 
-# 3. Función JS para ocultar teclado
-def ocultar_teclado():
-    components.html(
-        """<script>
-        var inputs = window.parent.document.querySelectorAll('input');
-        for (var i=0; i<inputs.length; i++) { inputs[i].blur(); }
-        window.parent.document.activeElement.blur();
-        </script>""", height=0, width=0
-    )
-
-# 4. Descarga de datos
-@st.cache_data(ttl=3600, show_spinner="Sincronizando...")
+# 2. Carga de Datos Segura
+@st.cache_data(ttl=3600, show_spinner="Sincronizando con el Ministerio...")
 def cargar_datos():
     url = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/"
     try:
@@ -72,9 +28,10 @@ def cargar_datos():
     except:
         return None
 
-# 5. Gestión de Favoritos
+# 3. Gestión Robusta de Favoritos en la URL
 def obtener_favoritos():
     if "favs" in st.query_params:
+        # Recuperamos la lista de la URL
         return st.query_params["favs"].split("|")
     return []
 
@@ -92,11 +49,12 @@ def eliminar_favorito(id_gas):
         if actuales:
             st.query_params["favs"] = "|".join(actuales)
         else:
+            # Si nos quedamos sin favoritos, borramos el parámetro de la URL
             del st.query_params["favs"]
         st.rerun()
 
-# --- INTERFAZ PRINCIPAL ---
-st.markdown("<h3 style='text-align: center; margin-top: -15px;'>⛽ Precios Combustible</h3>", unsafe_allow_html=True)
+# --- INICIO DE LA INTERFAZ ---
+st.markdown("<h2 style='text-align: center;'>⛽ Precios Combustible</h2>", unsafe_allow_html=True)
 
 datos = cargar_datos()
 
@@ -104,77 +62,79 @@ if datos:
     favs_ids = obtener_favoritos()
     municipios_unicos = sorted(list(set([g["Municipio"] for g in datos])))
     
-    # === SECCIÓN AÑADIR GASOLINERAS ===
-    with st.expander("➕ Añadir más gasolineras", expanded=not bool(favs_ids)):
-        municipio_sel = st.selectbox(
-            "Buscar municipio:", options=municipios_unicos, index=None, placeholder="Escribe para buscar (ej: IRU...)"
-        )
-        
-        if municipio_sel:
-            ocultar_teclado()
-            resultados = [g for g in datos if g["Municipio"] == municipio_sel]
-            
-            for g in resultados:
-                g_id = f"{g['Rótulo']}~{g['Dirección']}"
-                st.markdown(f"**{g['Rótulo']}** <span style='font-size:0.75em; color:gray;'>{g['Dirección'][:25]}...</span>", unsafe_allow_html=True)
-                
-                # REPARTO DE ESPACIO: Precios Izquierda (50%), Mapa (25%), Añadir (25%)
-                c_precios, c_map, c_add = st.columns([5, 2.5, 2.5])
-                
-                with c_precios:
-                    d_val = g['Precio Gasoleo A'] if g['Precio Gasoleo A'] else "--"
-                    g_val = g['Precio Gasolina 95 E5'] if g['Precio Gasolina 95 E5'] else "--"
-                    # Apilamos los precios verticalmente usando HTML para mayor control
-                    st.markdown(f"<div style='font-size:0.85em; line-height:1.4;'><b>Diésel:</b> {d_val}€<br><b>Gasolina 95:</b> {g_val}€</div>", unsafe_allow_html=True)
-                
-                with c_map:
-                    lat = str(g["Latitud"]).replace(",", ".")
-                    lon = str(g["Longitud (WGS84)"]).replace(",", ".")
-                    st.link_button("📍 Maps", f"https://www.google.com/maps?q={lat},{lon}")
-                
-                with c_add:
-                    if g_id in favs_ids:
-                        st.markdown("<div style='text-align:center; padding-top:0.3rem;'>✅</div>", unsafe_allow_html=True)
-                    else:
-                        if st.button("⭐ Añadir", key=f"add-{g_id}"): guardar_favorito(g_id)
-                st.markdown("<hr>", unsafe_allow_html=True)
-
-    # === SECCIÓN TUS FAVORITOS ===
+    # === 1. SECCIÓN DE FAVORITOS ===
     if favs_ids:
-        orden = st.radio("Ordenar ranking:", ["Diésel", "Gasolina 95"], horizontal=True, label_visibility="collapsed")
-        col_sort = "Precio Gasoleo A" if orden == "Diésel" else "Precio Gasolina 95 E5"
+        st.subheader("⭐ Mis Estaciones Guardadas")
         
+        # Filtramos y ordenamos los favoritos por Diésel por defecto
         lista_favs = [g for g in datos if f"{g['Rótulo']}~{g['Dirección']}" in favs_ids]
         df_favs = pd.DataFrame(lista_favs)
+        
         df_favs["Precio Gasoleo A"] = pd.to_numeric(df_favs["Precio Gasoleo A"].str.replace(",", "."), errors='coerce')
         df_favs["Precio Gasolina 95 E5"] = pd.to_numeric(df_favs["Precio Gasolina 95 E5"].str.replace(",", "."), errors='coerce')
-        df_favs = df_favs.sort_values(by=col_sort)
-        
-        st.markdown("<hr style='border-top: 2px solid #333;'>", unsafe_allow_html=True)
+        df_favs = df_favs.sort_values(by="Precio Gasoleo A")
         
         for _, gas in df_favs.iterrows():
             g_id = f"{gas['Rótulo']}~{gas['Dirección']}"
             
-            st.markdown(f"**{gas['Rótulo']}** <span style='font-size:0.75em; color:gray;'>{gas['Dirección'][:25]}...</span>", unsafe_allow_html=True)
-            
-            # REPARTO DE ESPACIO: Precios apilados a la izquierda, botones a la derecha
-            col_precios, col_map, col_del = st.columns([5, 2.5, 2.5])
-            
-            with col_precios:
-                d_val = f"{gas['Precio Gasoleo A']}€" if pd.notna(gas['Precio Gasoleo A']) else "--"
-                g_val = f"{gas['Precio Gasolina 95 E5']}€" if pd.notna(gas['Precio Gasolina 95 E5']) else "--"
-                # Textos estructurados como pediste
-                st.markdown(f"<div style='font-size:0.85em; line-height:1.4;'><b>Diésel:</b> {d_val}<br><b>Gasolina 95:</b> {g_val}</div>", unsafe_allow_html=True)
-            
-            with col_map:
+            with st.container(border=True):
+                # Piso 1: Título
+                st.markdown(f"**{gas['Rótulo']}**<br><span style='color: gray; font-size: 0.9em;'>{gas['Dirección']} ({gas['Municipio']})</span>", unsafe_allow_html=True)
+                
+                # Piso 2: Precios claros
+                d_val = f"{gas['Precio Gasoleo A']} €" if pd.notna(gas['Precio Gasoleo A']) else "--"
+                g_val = f"{gas['Precio Gasolina 95 E5']} €" if pd.notna(gas['Precio Gasolina 95 E5']) else "--"
+                st.markdown(f"**Diésel:** {d_val} &nbsp;&nbsp;|&nbsp;&nbsp; **Gasolina 95:** {g_val}")
+                
+                # Piso 3: Botones seguros y anchos
+                col1, col2 = st.columns(2)
                 lat = str(gas["Latitud"]).replace(",", ".")
                 lon = str(gas["Longitud (WGS84)"]).replace(",", ".")
-                st.link_button("📍 Maps", f"https://www.google.com/maps?q={lat},{lon}")
+                
+                col1.link_button("📍 Ver en Maps", f"https://www.google.com/maps?q={lat},{lon}", use_container_width=True)
+                if col2.button("🗑️ Borrar", key=f"del-{g_id}", use_container_width=True):
+                    eliminar_favorito(g_id)
+                    
+        st.divider()
+
+    # === 2. SECCIÓN DE BÚSQUEDA ===
+    # Si no hay favoritos, el buscador aparece abierto. Si hay, aparece recogido para no molestar.
+    with st.expander("🔍 Buscar y añadir gasolineras", expanded=not bool(favs_ids)):
+        municipio_sel = st.selectbox(
+            "Selecciona o escribe el municipio:", 
+            options=municipios_unicos, 
+            index=None, 
+            placeholder="Ej: IRURA"
+        )
+        
+        if municipio_sel:
+            resultados = [g for g in datos if g["Municipio"] == municipio_sel]
+            st.write(f"Resultados en **{municipio_sel}**:")
             
-            with col_del:
-                if st.button("🗑️ Borrar", key=f"del-{g_id}"): eliminar_favorito(g_id)
-            
-            st.markdown("<hr>", unsafe_allow_html=True)
+            for g in resultados:
+                g_id = f"{g['Rótulo']}~{g['Dirección']}"
+                
+                with st.container(border=True):
+                    # Piso 1
+                    st.markdown(f"**{g['Rótulo']}**<br><span style='color: gray; font-size: 0.9em;'>{g['Dirección']}</span>", unsafe_allow_html=True)
+                    
+                    # Piso 2
+                    d_val = f"{g['Precio Gasoleo A']} €" if g['Precio Gasoleo A'] else "--"
+                    g_val = f"{g['Precio Gasolina 95 E5']} €" if g['Precio Gasolina 95 E5'] else "--"
+                    st.markdown(f"**Diésel:** {d_val} &nbsp;&nbsp;|&nbsp;&nbsp; **Gasolina 95:** {g_val}")
+                    
+                    # Piso 3
+                    col1, col2 = st.columns(2)
+                    lat = str(g["Latitud"]).replace(",", ".")
+                    lon = str(g["Longitud (WGS84)"]).replace(",", ".")
+                    
+                    col1.link_button("📍 Ver en Maps", f"https://www.google.com/maps?q={lat},{lon}", use_container_width=True)
+                    
+                    if g_id in favs_ids:
+                        col2.button("✅ Guardado", key=f"saved-{g_id}", disabled=True, use_container_width=True)
+                    else:
+                        if col2.button("⭐ Guardar", key=f"add-{g_id}", type="primary", use_container_width=True):
+                            guardar_favorito(g_id)
 
 else:
-    st.error("Error al cargar datos del Ministerio.")
+    st.error("No se ha podido conectar con el Ministerio de Energía en este momento.")
