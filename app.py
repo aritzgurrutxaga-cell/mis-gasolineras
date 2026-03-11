@@ -20,13 +20,13 @@ class SSLAdapter(HTTPAdapter):
 # 1. Configuración de la página
 st.set_page_config(page_title="Buscador Gasolineras", page_icon="⛽", layout="centered")
 
-# AJUSTES DE ESPACIADO PRECISOS
+# AJUSTES DE ESPACIADO EQUILIBRADOS
 st.markdown("""
     <style>
-        /* Baja el título de la parte superior */
+        /* Baja el título un poco del techo del navegador */
         .block-container {padding-top: 4.5rem;}
         
-        /* Espacio extra entre el bloque de ubicación y el radio de búsqueda */
+        /* Espacio extra entre bloque de ubicación y el slider de radio */
         div[data-testid="stVerticalBlock"] > div:has(div[data-testid="stSlider"]) {
             margin-top: 2rem;
         }
@@ -34,15 +34,15 @@ st.markdown("""
         /* Reduce el espacio debajo del slider para acercar los resultados */
         div[data-testid="stSlider"] {margin-bottom: -2.5rem;}
         
-        /* Ajuste de márgenes del título */
+        /* Ajuste margen inferior del título */
         h1 {margin-bottom: 1.5rem;}
     </style>
 """, unsafe_allow_html=True)
 
-# Título adaptable en una sola línea
+# Título adaptable en una sola línea (para smartphones)
 st.markdown(
     """
-    <h1 style='text-align: center; font-size: clamp(24px, 7vw, 38px); white-space: nowrap; overflow: hidden;'>
+    <h1 style='text-align: center; font-size: clamp(22px, 7vw, 38px); white-space: nowrap; overflow: hidden;'>
         ⛽ Buscador Gasolineras
     </h1>
     """, 
@@ -82,6 +82,7 @@ datos, fecha_act = cargar_datos()
 
 if datos:
     df = pd.DataFrame(datos)
+    # Limpieza estándar necesaria
     df["lat_num"] = pd.to_numeric(df["Latitud"].str.replace(",", "."), errors='coerce')
     df["lon_num"] = pd.to_numeric(df["Longitud (WGS84)"].str.replace(",", "."), errors='coerce')
     df["Precio_Diesel"] = pd.to_numeric(df["Precio Gasoleo A"].str.replace(",", "."), errors='coerce')
@@ -89,6 +90,7 @@ if datos:
     
     municipios_unicos = sorted(list(set([str(g["Municipio"]) for g in datos])))
 
+    # Lógica GPS Silenciosa
     loc = get_geolocation()
     lat_gps, lon_gps, muni_gps = None, None, None
 
@@ -105,7 +107,7 @@ if datos:
         
         if lat_gps and (municipio_manual == muni_gps or municipio_manual is None):
             lat_ref, lon_ref = lat_gps, lon_gps
-            origen_label = "tu ubicación exacta"
+            origen_label = "tu ubicación actual"
             st.success("✅ GPS Activo")
         elif municipio_manual:
             ref = df[df["Municipio"] == municipio_manual].iloc[0]
@@ -118,6 +120,7 @@ if datos:
     # --- BLOQUE RADIO ---
     radio_km = st.slider("Radio de búsqueda (Km):", 1, 50, 10)
 
+    # Inicializar estado de ordenación si no existe
     if 'tipo_orden' not in st.session_state:
         st.session_state.tipo_orden = "Diésel"
     col_orden = "Precio_Diesel" if st.session_state.tipo_orden == "Diésel" else "Precio_G95"
@@ -125,36 +128,48 @@ if datos:
     # --- RESULTADOS ---
     if lat_ref and lon_ref:
         df["Distancia"] = calcular_distancia(lat_ref, lon_ref, df["lat_num"], df["lon_num"])
-        res = df[(df["Distancia"] <= radio_km) & (df[col_orden].notna())].sort_values(col_orden)
+        
+        # SOLUCIÓN AL PROBLEMA DE URRETXU:
+        # Filtramos por radio, pero permitimos que se vea CUALQUIERA que tenga al menos uno de los dos precios.
+        # Así no desaparecen si les falta justo el que has elegido para ordenar.
+        res = df[
+            (df["Distancia"] <= radio_km) & 
+            ((df["Precio_Diesel"].notna()) | (df["Precio_G95"].notna()))
+        ].sort_values(col_orden, na_position='last') # Los N/A van al final de la lista
 
         st.divider()
         st.caption(f"Resultados ordenados por precio de: {st.session_state.tipo_orden}")
         
         if not res.empty:
-            for _, g in res.head(15).iterrows():
+            for _, g in res.head(20).iterrows():
                 with st.container(border=True):
                     col_info, col_btn = st.columns([3, 1])
                     with col_info:
                         st.write(f"### {g['Rótulo']} - {g['Municipio']}")
                         p_diesel = f"{g['Precio Gasoleo A']} €" if pd.notnull(g['Precio_Diesel']) else "N/A"
                         p_g95 = f"{g['Precio Gasolina 95 E5']} €" if pd.notnull(g['Precio_G95']) else "N/A"
+                        
                         st.write(f"⛽ **Diésel:** {p_diesel} | **G95:** {p_g95}")
                         st.write(f"📍 {g['Distancia']:.2f} km | {g['Dirección']}")
                     with col_btn:
+                        # Enlace de navegación
                         url_map = f"https://www.google.com/maps/dir/?api=1&destination={g['lat_num']},{g['lon_num']}"
                         st.link_button("Ir", url_map, use_container_width=True)
         else:
-            st.warning("No hay resultados en este radio.")
+            st.warning("No hay gasolineras disponibles en este radio.")
 
-    # --- BLOQUE FINAL ---
+    # --- BLOQUE FINAL (PEQUEÑO Y DISCRETO) ---
     st.write("---")
     st.caption("Configuración de ordenación:")
     st.session_state.tipo_orden = st.radio(
-        "Filtrar y ordenar por:", ["Diésel", "G95"], horizontal=True, label_visibility="collapsed",
+        "Filtrar y ordenar por:", 
+        ["Diésel", "G95"], 
+        horizontal=True, 
+        label_visibility="collapsed",
         index=0 if st.session_state.tipo_orden == "Diésel" else 1
     )
 
     if fecha_act:
         st.caption(f"Actualizado: {fecha_act.strftime('%d/%m/%Y %H:%M:%S')}")
 else:
-    st.error("Sin conexión a los datos oficiales.")
+    st.error("Error al cargar los datos oficiales.")
