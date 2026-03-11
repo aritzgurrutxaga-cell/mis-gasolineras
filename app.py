@@ -11,36 +11,28 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. CSS ESTRICTO: Bloqueo de apilamiento en móviles
+# 2. CSS ESTRICTO: Ajuste de anchos y bloqueo de saltos de línea
 st.markdown("""
     <style>
         #MainMenu, footer, header {visibility: hidden;}
+        
+        /* Contenedor principal sin márgenes laterales que roben espacio */
         .block-container {
-            padding: 1rem 0.5rem 0rem 0.5rem !important;
-            max-width: 100% !important;
+            padding: 1rem 0.2rem 0rem 0.2rem !important;
+            max-width: 100vw !important;
+            overflow-x: hidden !important; /* Prohíbe terminantemente el scroll horizontal */
         }
         
-        /* Ajuste de márgenes de texto */
-        p {
-            margin-bottom: 0rem !important;
-            font-size: 0.85rem !important;
-        }
-        
-        /* 🛑 EL TRUCO MAGICO: Forzar a Streamlit a NO apilar las columnas en móvil */
+        /* Mantiene los elementos de la fila en una sola línea */
         div[data-testid="stHorizontalBlock"] {
-            flex-wrap: nowrap !important; /* Prohíbe que salten a la siguiente línea */
-            align-items: center !important; /* Centra los botones con el texto verticalmente */
-            gap: 0.3rem !important; /* Reduce el espacio entre columnas */
+            flex-wrap: nowrap !important; 
+            align-items: center !important;
+            gap: 0.2rem !important;
         }
         
-        /* Permite que las columnas se encojan si la pantalla es muy pequeña */
-        div[data-testid="column"] {
-            min-width: 0 !important;
-        }
-
-        /* Botones ultra-compactos para que quepan en la misma línea */
+        /* Botones optimizados para encajar a la derecha */
         .stButton>button, .stLinkButton>a {
-            padding: 0.1rem 0.2rem !important;
+            padding: 0.3rem 0.1rem !important;
             min-height: 0px !important;
             line-height: 1.2 !important;
             border-radius: 6px;
@@ -124,13 +116,16 @@ if datos:
             
             for g in resultados:
                 g_id = f"{g['Rótulo']}~{g['Dirección']}"
-                st.markdown(f"**{g['Rótulo']}** <span style='font-size:0.75em; color:gray;'>{g['Dirección'][:20]}...</span>", unsafe_allow_html=True)
+                st.markdown(f"**{g['Rótulo']}** <span style='font-size:0.75em; color:gray;'>{g['Dirección'][:25]}...</span>", unsafe_allow_html=True)
                 
-                # REPARTO DE ESPACIO: D (25%), G (25%), Mapa (30%), Añadir (20%)
-                c_d, c_g, c_map, c_add = st.columns([2.5, 2.5, 3, 2])
+                # REPARTO DE ESPACIO: Precios Izquierda (50%), Mapa (25%), Añadir (25%)
+                c_precios, c_map, c_add = st.columns([5, 2.5, 2.5])
                 
-                c_d.markdown(f"**D:** {g['Precio Gasoleo A']}€" if g['Precio Gasoleo A'] else "**D:** --")
-                c_g.markdown(f"**G:** {g['Precio Gasolina 95 E5']}€" if g['Precio Gasolina 95 E5'] else "**G:** --")
+                with c_precios:
+                    d_val = g['Precio Gasoleo A'] if g['Precio Gasoleo A'] else "--"
+                    g_val = g['Precio Gasolina 95 E5'] if g['Precio Gasolina 95 E5'] else "--"
+                    # Apilamos los precios verticalmente usando HTML para mayor control
+                    st.markdown(f"<div style='font-size:0.85em; line-height:1.4;'><b>Diésel:</b> {d_val}€<br><b>Gasolina 95:</b> {g_val}€</div>", unsafe_allow_html=True)
                 
                 with c_map:
                     lat = str(g["Latitud"]).replace(",", ".")
@@ -139,9 +134,9 @@ if datos:
                 
                 with c_add:
                     if g_id in favs_ids:
-                        st.markdown("<div style='text-align:center;'>✅</div>", unsafe_allow_html=True)
+                        st.markdown("<div style='text-align:center; padding-top:0.3rem;'>✅</div>", unsafe_allow_html=True)
                     else:
-                        if st.button("⭐", key=f"add-{g_id}"): guardar_favorito(g_id)
+                        if st.button("⭐ Añadir", key=f"add-{g_id}"): guardar_favorito(g_id)
                 st.markdown("<hr>", unsafe_allow_html=True)
 
     # === SECCIÓN TUS FAVORITOS ===
@@ -160,15 +155,16 @@ if datos:
         for _, gas in df_favs.iterrows():
             g_id = f"{gas['Rótulo']}~{gas['Dirección']}"
             
-            # Título y dirección sutil en una línea
-            st.markdown(f"**{gas['Rótulo']}** <span style='font-size:0.75em; color:gray;'>{gas['Dirección'][:20]}...</span>", unsafe_allow_html=True)
+            st.markdown(f"**{gas['Rótulo']}** <span style='font-size:0.75em; color:gray;'>{gas['Dirección'][:25]}...</span>", unsafe_allow_html=True)
             
-            # 🛑 LA FILA ÚNICA PROMETIDA
-            # Proporciones calculadas para que no se pise el texto con los botones
-            col_d, col_g, col_map, col_del = st.columns([2.5, 2.5, 3, 2])
+            # REPARTO DE ESPACIO: Precios apilados a la izquierda, botones a la derecha
+            col_precios, col_map, col_del = st.columns([5, 2.5, 2.5])
             
-            col_d.markdown(f"**D:** {gas['Precio Gasoleo A']}€" if pd.notna(gas['Precio Gasoleo A']) else "**D:** --")
-            col_g.markdown(f"**G:** {gas['Precio Gasolina 95 E5']}€" if pd.notna(gas['Precio Gasolina 95 E5']) else "**G:** --")
+            with col_precios:
+                d_val = f"{gas['Precio Gasoleo A']}€" if pd.notna(gas['Precio Gasoleo A']) else "--"
+                g_val = f"{gas['Precio Gasolina 95 E5']}€" if pd.notna(gas['Precio Gasolina 95 E5']) else "--"
+                # Textos estructurados como pediste
+                st.markdown(f"<div style='font-size:0.85em; line-height:1.4;'><b>Diésel:</b> {d_val}<br><b>Gasolina 95:</b> {g_val}</div>", unsafe_allow_html=True)
             
             with col_map:
                 lat = str(gas["Latitud"]).replace(",", ".")
@@ -176,6 +172,9 @@ if datos:
                 st.link_button("📍 Maps", f"https://www.google.com/maps?q={lat},{lon}")
             
             with col_del:
-                if st.button("🗑️", key=f"del-{g_id}"): eliminar_favorito(g_id)
+                if st.button("🗑️ Borrar", key=f"del-{g_id}"): eliminar_favorito(g_id)
             
             st.markdown("<hr>", unsafe_allow_html=True)
+
+else:
+    st.error("Error al cargar datos del Ministerio.")
