@@ -2,3 +2,4 @@ streamlit
 requests
 pandas
 streamlit-local-storage
+streamlit-js-eval
