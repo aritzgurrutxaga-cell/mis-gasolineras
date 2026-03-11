@@ -4,7 +4,7 @@ import requests
 import pandas as pd
 import numpy as np
 
-# 1. Configuración limpia (Tu V1)
+# 1. Configuración limpia (Exactamente igual a tu V1)
 st.set_page_config(page_title="Precios Combustible", page_icon="⛽", layout="centered")
 
 st.markdown("""
@@ -40,7 +40,7 @@ def ocultar_teclado():
         </script>""", height=0, width=0
     )
 
-# 3. Carga de Datos (LA DE TU V1 ORIGINAL - LA QUE NO FALLA)
+# 3. Carga de Datos (LA FUNCIÓN DE TU V1 SIN CAMBIOS)
 @st.cache_data(ttl=3600, show_spinner="Sincronizando...")
 def cargar_datos():
     url = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/"
@@ -63,6 +63,7 @@ st.markdown("<div class='titulo-una-linea'>⛽ Precios Combustible</div>", unsaf
 datos = cargar_datos()
 
 if datos:
+    # Convertimos a DataFrame para procesar rápido
     df = pd.DataFrame(datos)
     municipios_unicos = sorted(list(set([g["Municipio"] for g in datos])))
     
@@ -86,6 +87,7 @@ if datos:
         ocultar_teclado()
         
         # 1. Obtener coordenadas del municipio de referencia
+        # Limpiamos coordenadas (vienen con coma del Ministerio)
         df["lat_num"] = pd.to_numeric(df["Latitud"].str.replace(",", "."), errors='coerce')
         df["lon_num"] = pd.to_numeric(df["Longitud (WGS84)"].str.replace(",", "."), errors='coerce')
         
@@ -113,7 +115,7 @@ if datos:
                         st.write(f"💰 **{g[col_precio]} €** |  📍 {g['Distancia']:.1f} km")
                     
                     with col_btn:
-                        # Link a Google Maps
+                        # Link a Google Maps con coordenadas
                         map_url = f"https://www.google.com/maps?q={g['lat_num']},{g['lon_num']}"
                         st.link_button("Ir", map_url, use_container_width=True)
         else:
