@@ -5,21 +5,17 @@ import pandas as pd
 import numpy as np
 import urllib3
 
-# Esto silencia los avisos de seguridad por saltarnos la verificación SSL
+# Esta línea evita que aparezcan avisos de seguridad en la pantalla
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# 1. Configuración limpia
+# 1. Tu configuración original
 st.set_page_config(page_title="Precios Combustible", page_icon="⛽", layout="centered")
 
 st.markdown("""
     <style>
         #MainMenu, footer, header {visibility: hidden;}
-        .block-container {
-            padding: 1rem !important;
-        }
-        hr {
-            margin: 0.8rem 0 !important;
-        }
+        .block-container { padding: 1rem !important; }
+        hr { margin: 0.8rem 0 !important; }
         div[data-baseweb="select"] > div {
             border-radius: 8px !important;
             border: 1px solid #ccc !important;
@@ -34,7 +30,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 2. Función JS para ocultar teclado
+# 2. Tu función para ocultar teclado
 def ocultar_teclado():
     components.html(
         """<script>
@@ -44,30 +40,28 @@ def ocultar_teclado():
         </script>""", height=0, width=0
     )
 
-# 3. Carga de Datos (VERSION REFORZADA)
+# 3. Carga de Datos (CON EL PARCHE PARA QUE NO FALLE)
 @st.cache_data(ttl=3600, show_spinner="Sincronizando...")
 def cargar_datos():
     url = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/"
-    # Headers más completos para parecer un navegador real
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
     try:
-        # Añadimos verify=False para saltar errores de certificados SSL
-        r = requests.get(url, headers=headers, timeout=30, verify=False)
-        r.raise_for_status()
+        # Aquí está el truco: verify=False se salta el error de conexión que te está dando
+        r = requests.get(url, headers=headers, timeout=25, verify=False)
         return r.json()["ListaEESSPrecio"]
-    except Exception as e:
+    except:
         return None
 
-# 4. Función para calcular distancia
+# 4. Tu función Haversine
 def calcular_distancia(lat1, lon1, lat2, lon2):
     R = 6371.0
     dlat, dlon = np.radians(lat2 - lat1), np.radians(lon2 - lon1)
     a = np.sin(dlat / 2)**2 + np.cos(np.radians(lat1)) * np.cos(np.radians(lat2)) * np.sin(dlon / 2)**2
     return R * 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
 
-# --- INICIO DE LA INTERFAZ ---
+# --- TU INTERFAZ ---
 st.markdown("<div class='titulo-una-linea'>⛽ Precios Combustible</div>", unsafe_allow_html=True)
 
 datos = cargar_datos()
@@ -94,6 +88,7 @@ if datos:
     if municipio_sel:
         ocultar_teclado()
         
+        # Procesar coordenadas
         df["lat_num"] = pd.to_numeric(df["Latitud"].str.replace(",", "."), errors='coerce')
         df["lon_num"] = pd.to_numeric(df["Longitud (WGS84)"].str.replace(",", "."), errors='coerce')
         
@@ -118,9 +113,12 @@ if datos:
                         st.write(f"💰 **{g[col_precio]} €** |  📍 {g['Distancia']:.1f} km")
                     
                     with col_btn:
-                        map_url = f"https://www.google.com/maps?q={g['lat_num']},{g['lon_num']}"
+                        map_url = f"https://www.google.com/maps/search/?api=1&query={g['lat_num']},{g['lon_num']}"
                         st.link_button("Ir", map_url, use_container_width=True)
         else:
             st.warning("No hay gasolineras en este radio.")
 else:
-    st.error("No se ha podido conectar con el Ministerio en este momento.")
+    # Si falla, mostramos un mensaje más útil
+    st.error("El servidor del Ministerio está caído o bloqueando la conexión. Prueba a recargar en unos segundos.")
+    if st.button("🔄 Reintentar ahora"):
+        st.rerun()
