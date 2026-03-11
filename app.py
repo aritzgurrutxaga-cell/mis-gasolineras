@@ -19,6 +19,14 @@ st.markdown("""
             border-radius: 8px !important;
             border: 1px solid #ccc !important;
         }
+        /* Forzar título en una sola línea */
+        .titulo-una-linea {
+            text-align: center;
+            white-space: nowrap;
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -68,7 +76,8 @@ def eliminar_favorito(id_gas):
         st.rerun()
 
 # --- INICIO DE LA INTERFAZ ---
-st.markdown("<h2 style='text-align: center;'>⛽ Precios Combustible</h2>", unsafe_allow_html=True)
+# Título modificado para asegurar una sola línea
+st.markdown("<div class='titulo-una-linea'>⛽ Precios Combustible</div>", unsafe_allow_html=True)
 
 datos = cargar_datos()
 
@@ -114,8 +123,8 @@ if datos:
     if favs_ids:
         st.write("### ⭐ Guardadas")
         
-        # Implementación del texto aclaratorio antes del selector de orden
-        col_txt, col_opt = st.columns([1, 1])
+        # Texto aclaratorio solicitado
+        col_txt, col_opt = st.columns([1.1, 1])
         with col_txt:
             st.write("Ordenar por precio de:")
         with col_opt:
