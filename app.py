@@ -8,7 +8,7 @@ from streamlit_js_eval import get_geolocation
 from requests.adapters import HTTPAdapter
 from urllib3.util.ssl_ import create_urllib3_context
 
-# --- ADAPTADOR SSL ---
+# --- ADAPTADOR SSL (Para conexión con el Ministerio) ---
 class SSLAdapter(HTTPAdapter):
     def init_poolmanager(self, *args, **kwargs):
         context = create_urllib3_context()
@@ -19,7 +19,7 @@ class SSLAdapter(HTTPAdapter):
 # 1. Configuración de la página
 st.set_page_config(page_title="Gasolineras Baratas", page_icon="⛽", layout="centered")
 
-# 2. Carga de Datos con Backup
+# 2. Carga de Datos con Backup Persistente
 @st.cache_data(ttl=3600)
 def cargar_datos():
     url = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/"
@@ -47,49 +47,46 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
     a = np.sin(dlat / 2)**2 + np.cos(np.radians(lat1)) * np.cos(np.radians(lat2)) * np.sin(dlon / 2)**2
     return R * 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
 
-# --- INTERFAZ ---
+# --- INICIO DE INTERFAZ ---
 st.markdown("<h2 style='text-align: center;'>⛽ Gasolineras más baratas</h2>", unsafe_allow_html=True)
 
 datos, fecha_act = cargar_datos()
 
 if datos:
-    # 3. Obtener ubicación GPS (con validación de seguridad)
-    loc = get_geolocation()
-    
     df = pd.DataFrame(datos)
     municipios_unicos = sorted(list(set([str(g["Municipio"]) for g in datos])))
 
+    # --- BLOQUE 1: SELECCIÓN (ARRIBA) ---
     with st.container(border=True):
-        col_radio, col_tipo = st.columns(2)
-        radio_km = col_radio.slider("Radio de búsqueda (Km):", 1, 50, 10)
-        combustible = col_tipo.radio("Combustible:", ["Diésel", "G95"], horizontal=True)
+        c_comb, c_muni = st.columns([1, 1.5])
+        combustible = c_comb.radio("Combustible:", ["Diésel", "G95"], horizontal=True)
         col_precio = "Precio Gasoleo A" if combustible == "Diésel" else "Precio Gasolina 95 E5"
         
-        # Plan B: Selector manual por si falla el GPS
-        municipio_manual = st.selectbox("📍 O busca por municipio (si el GPS no carga):", 
-                                       options=municipios_unicos, index=None)
+        municipio_manual = c_muni.selectbox("📍 Municipio (si falla GPS):", 
+                                          options=municipios_unicos, index=None)
 
+    # --- BLOQUE 2: MENSAJE DE UBICACIÓN (CENTRO) ---
+    loc = get_geolocation()
     lat_user, lon_user, origen = None, None, ""
 
-    # VALIDACIÓN DE SEGURIDAD PARA EL GPS
     if loc and 'coords' in loc:
         lat_user = loc['coords']['latitude']
         lon_user = loc['coords']['longitude']
         origen = "tu ubicación actual"
-        st.success("📍 Usando tu ubicación GPS")
+        st.success("📍 Usando tu ubicación GPS exacta")
     elif municipio_manual:
-        # Si no hay GPS pero hay municipio manual
         ref = df[df["Municipio"] == municipio_manual].iloc[0]
-        # Limpiamos coordenadas del municipio (vienen con comas)
         lat_user = float(str(ref["Latitud"]).replace(",", "."))
         lon_user = float(str(ref["Longitud (WGS84)"]).replace(",", "."))
         origen = municipio_manual
     else:
-        st.info("⌛ Esperando permiso de ubicación o selecciona un municipio arriba...")
+        st.info("⌛ Esperando señal GPS o selección de municipio...")
 
-    # Si logramos obtener alguna coordenada (vía GPS o Manual)
+    # --- BLOQUE 3: RADIO DE BÚSQUEDA (DEBAJO DEL MENSAJE) ---
+    radio_km = st.slider("Radio de búsqueda (Km):", 1, 50, 10)
+
+    # --- CÁLCULOS Y RESULTADOS ---
     if lat_user and lon_user:
-        # Limpieza de datos general
         df["lat_num"] = pd.to_numeric(df["Latitud"].str.replace(",", "."), errors='coerce')
         df["lon_num"] = pd.to_numeric(df["Longitud (WGS84)"].str.replace(",", "."), errors='coerce')
         df["precio_num"] = pd.to_numeric(df[col_precio].str.replace(",", "."), errors='coerce')
@@ -105,18 +102,19 @@ if datos:
                 with st.container(border=True):
                     col_i, col_b = st.columns([3, 1])
                     with col_i:
+                        # Formato pedido: Nombre - Municipio
                         st.markdown(f"**{g['Rótulo']} - {g['Municipio']}**")
                         st.write(f"💰 **{g[col_precio]} €/L** | 📍 {g['Distancia']:.2f} km")
                         st.caption(f"{g['Dirección']}")
                     with col_b:
-                        # Enlace directo a ruta en Google Maps
+                        # Navegación directa
                         url_map = f"https://www.google.com/maps/dir/?api=1&destination={g['lat_num']},{g['lon_num']}"
                         st.link_button("Ir", url_map, use_container_width=True)
         else:
-            st.warning("No hay resultados en este radio.")
+            st.warning("No hay gasolineras disponibles en este radio.")
 
     # Pie de página
     if fecha_act:
-        st.markdown(f"<div style='text-align: center; color: gray; font-size: 0.75rem; margin-top: 50px;'>Sincronizado: {fecha_act.strftime('%d/%m/%Y %H:%M:%S')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='text-align: center; color: gray; font-size: 0.75rem; margin-top: 50px;'>Datos actualizados: {fecha_act.strftime('%d/%m/%Y %H:%M:%S')}</div>", unsafe_allow_html=True)
 else:
-    st.error("Error al cargar los datos.")
+    st.error("No se han podido cargar los datos.")
