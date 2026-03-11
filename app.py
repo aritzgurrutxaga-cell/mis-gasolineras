@@ -18,8 +18,8 @@ class SSLAdapter(HTTPAdapter):
         kwargs['ssl_context'] = context
         return super(SSLAdapter, self).init_poolmanager(*args, **kwargs)
 
-# 1. Configuración de la página
-st.set_page_config(page_title="Buscador Gasolineras", page_icon="⛽", layout="centered")
+# 1. Configuración de la página (AQUÍ ESTÁ EL CAMBIO)
+st.set_page_config(page_title="Gasolineras", page_icon="⛽", layout="centered")
 
 # AJUSTES DE ESPACIADO PRECISOS
 st.markdown("""
@@ -148,8 +148,7 @@ if datos:
                         st.write(f"⛽ **D:** {p_diesel} | **G95:** {p_g95}")
                         st.caption(f"📍 {g['Distancia']:.2f} km | {g['Dirección']}")
                     with col_btn:
-                        # --- CAMBIO REALIZADO AQUÍ: URL OFICIAL DE GOOGLE MAPS ---
-                        url_map = f"https://www.google.com/maps/search/?api=1&query={g['lat_num']},{g['lon_num']}"
+                        url_map = f"https://www.google.com/maps/dir/?api=1&destination={g['lat_num']},{g['lon_num']}"
                         st.link_button("📍 Navegar", url_map, use_container_width=True)
         else:
             st.warning("No hay resultados en este radio.")
