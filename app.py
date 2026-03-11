@@ -2,50 +2,74 @@ import streamlit as st
 import requests
 import pandas as pd
 
-st.set_page_config(page_title="Gasolineras Pro", page_icon="⛽", layout="wide")
+# 1. Configuración de la WebApp
+st.set_page_config(page_title="Gasolineras Pro", page_icon="⛽", layout="centered")
 
-@st.cache_data(ttl=1800) # Se actualiza cada 30 min
-def get_data():
+# 2. Función de descarga "Blindada"
+# Guardamos los datos en la memoria de la plataforma online durante 1 hora (3600 seg)
+@st.cache_data(ttl=3600, show_spinner="Actualizando base de datos desde el Ministerio...")
+def descargar_base_datos_completa():
     url = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/"
-    r = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=20)
-    return r.json()["ListaEESSPrecio"]
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://geoportalgasolineras.es/'
+    }
+    try:
+        # Intentamos la descarga
+        response = requests.get(url, headers=headers, timeout=30)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        # Si falla la descarga, devolvemos None para manejarlo
+        return None
 
-st.title("⛽ Mi Gasolinera Barata")
+st.title("⛽ Gasolineras Pro")
+st.markdown("Consulta local de precios (Base de datos en la nube)")
 
-try:
-    estaciones = get_data()
+# 3. Lógica de ejecución
+datos_json = descargar_base_datos_completa()
+
+if datos_json is not None:
+    estaciones = datos_json.get("ListaEESSPrecio", [])
     
-    # Buscador con autocompletado de municipios
-    municipios = sorted(list(set([e["Municipio"] for e in estaciones])))
-    municipio_sel = st.selectbox("Selecciona tu Municipio", municipios, index=municipios.index("IRURA") if "IRURA" in municipios else 0)
+    # Extraemos todos los municipios para el listado
+    municipios_disponibles = sorted(list(set([e["Municipio"] for e in estaciones])))
+    
+    municipio_sel = st.selectbox(
+        "📍 Selecciona tu municipio:", 
+        municipios_disponibles, 
+        index=municipios_disponibles.index("IRURA") if "IRURA" in municipios_disponibles else 0
+    )
 
     if municipio_sel:
-        # Filtrar y limpiar datos
-        df = pd.DataFrame([e for e in estaciones if e["Municipio"] == municipio_sel])
+        # Filtramos directamente sobre la lista que ya tenemos en la memoria de la plataforma
+        datos_municipio = [e for e in estaciones if e["Municipio"] == municipio_sel]
         
-        # Convertir precios a número para poder ordenar (vienen con comas)
-        df["Precio Gasoleo A"] = df["Precio Gasoleo A"].str.replace(",", ".").astype(float)
-        df["Precio Gasolina 95 E5"] = df["Precio Gasolina 95 E5"].str.replace(",", ".").astype(float)
+        if datos_municipio:
+            df = pd.DataFrame(datos_municipio)
+            
+            # Limpieza de precios
+            df["Precio Gasoleo A"] = df["Precio Gasoleo A"].str.replace(",", ".").astype(float)
+            df["Precio Gasolina 95 E5"] = df["Precio Gasolina 95 E5"].str.replace(",", ".").astype(float)
 
-        # Botón para ordenar por la más barata
-        tipo_combustible = st.radio("Ordenar por mejor precio de:", ["Diésel A", "Gasolina 95"])
-        col_sort = "Precio Gasoleo A" if tipo_combustible == "Diésel A" else "Precio Gasolina 95 E5"
-        df = df.sort_values(by=col_sort)
+            opcion = st.radio("Ordenar por:", ["Diésel A", "Gasolina 95"], horizontal=True)
+            col_sort = "Precio Gasoleo A" if opcion == "Diésel A" else "Precio Gasolina 95 E5"
+            df = df.sort_values(by=col_sort)
 
-        st.subheader(f"Gasolineras en {municipio_sel}")
-        
-        for _, gas in df.iterrows():
-            with st.container():
-                c1, c2, c3 = st.columns([2, 1, 1])
-                c1.markdown(f"**{gas['Rótulo']}**\n\n{gas['Dirección']}")
-                c2.metric(tipo_combustible, f"{gas[col_sort]} €/L")
-                
-                # Botón mágico para abrir Google Maps
-                lat = gas["Latitud"].replace(",", ".")
-                lon = gas["Longitud (WGS84)"].replace(",", ".")
-                maps_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
-                c3.link_button("Ir ahora 📍", maps_url)
-                st.divider()
-
-except Exception as e:
-    st.error("Servidor del Ministerio no disponible. Reintenta en unos minutos.")
+            st.divider()
+            for _, gas in df.iterrows():
+                with st.container():
+                    c1, c2 = st.columns([3, 1])
+                    c1.subheader(gas['Rótulo'])
+                    c1.caption(gas['Dirección'])
+                    c2.metric("Precio", f"{gas[col_sort]}€")
+                    
+                    lat = gas["Latitud"].replace(",", ".")
+                    lon = gas["Longitud (WGS84)"].replace(",", ".")
+                    st.link_button("🗺️ Cómo llegar", f"https://www.google.com/maps?q={lat},{lon}")
+                    st.write("")
+        else:
+            st.warning("No hay datos disponibles para este municipio en este momento.")
+else:
+    st.error("⚠️ El Ministerio no responde. Usando última copia de seguridad de la plataforma...")
+    st.info("Reintenta recargar la página en unos segundos.")
