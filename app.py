@@ -3,8 +3,12 @@ import streamlit.components.v1 as components
 import requests
 import pandas as pd
 import numpy as np
+import urllib3
 
-# 1. Configuración limpia (Exactamente igual a tu V1)
+# Esto silencia los avisos de seguridad por saltarnos la verificación SSL
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# 1. Configuración limpia
 st.set_page_config(page_title="Precios Combustible", page_icon="⛽", layout="centered")
 
 st.markdown("""
@@ -30,7 +34,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 2. Función JS para ocultar teclado (Tu V1)
+# 2. Función JS para ocultar teclado
 def ocultar_teclado():
     components.html(
         """<script>
@@ -40,17 +44,23 @@ def ocultar_teclado():
         </script>""", height=0, width=0
     )
 
-# 3. Carga de Datos (LA FUNCIÓN DE TU V1 SIN CAMBIOS)
+# 3. Carga de Datos (VERSION REFORZADA)
 @st.cache_data(ttl=3600, show_spinner="Sincronizando...")
 def cargar_datos():
     url = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/"
+    # Headers más completos para parecer un navegador real
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
     try:
-        r = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=20)
+        # Añadimos verify=False para saltar errores de certificados SSL
+        r = requests.get(url, headers=headers, timeout=30, verify=False)
+        r.raise_for_status()
         return r.json()["ListaEESSPrecio"]
-    except:
+    except Exception as e:
         return None
 
-# 4. Función para calcular distancia (Haversine)
+# 4. Función para calcular distancia
 def calcular_distancia(lat1, lon1, lat2, lon2):
     R = 6371.0
     dlat, dlon = np.radians(lat2 - lat1), np.radians(lon2 - lon1)
@@ -63,11 +73,9 @@ st.markdown("<div class='titulo-una-linea'>⛽ Precios Combustible</div>", unsaf
 datos = cargar_datos()
 
 if datos:
-    # Convertimos a DataFrame para procesar rápido
     df = pd.DataFrame(datos)
     municipios_unicos = sorted(list(set([g["Municipio"] for g in datos])))
     
-    # Selector de ubicación y radio
     with st.container(border=True):
         municipio_sel = st.selectbox(
             "🔍 Tu ubicación actual (Municipio):",
@@ -86,18 +94,13 @@ if datos:
     if municipio_sel:
         ocultar_teclado()
         
-        # 1. Obtener coordenadas del municipio de referencia
-        # Limpiamos coordenadas (vienen con coma del Ministerio)
         df["lat_num"] = pd.to_numeric(df["Latitud"].str.replace(",", "."), errors='coerce')
         df["lon_num"] = pd.to_numeric(df["Longitud (WGS84)"].str.replace(",", "."), errors='coerce')
         
         ref = df[df["Municipio"] == municipio_sel].iloc[0]
         lat_ref, lon_ref = ref["lat_num"], ref["lon_num"]
         
-        # 2. Calcular distancias de todas las gasolineras
         df["Distancia"] = calcular_distancia(lat_ref, lon_ref, df["lat_num"], df["lon_num"])
-        
-        # 3. Limpiar precios y filtrar por radio
         df["precio_num"] = pd.to_numeric(df[col_precio].str.replace(",", "."), errors='coerce')
         
         resultados = df[(df["Distancia"] <= radio_km) & (df["precio_num"].notna())].sort_values(by="precio_num")
@@ -115,11 +118,9 @@ if datos:
                         st.write(f"💰 **{g[col_precio]} €** |  📍 {g['Distancia']:.1f} km")
                     
                     with col_btn:
-                        # Link a Google Maps con coordenadas
                         map_url = f"https://www.google.com/maps?q={g['lat_num']},{g['lon_num']}"
                         st.link_button("Ir", map_url, use_container_width=True)
         else:
             st.warning("No hay gasolineras en este radio.")
-
 else:
     st.error("No se ha podido conectar con el Ministerio en este momento.")
