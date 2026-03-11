@@ -1,9 +1,8 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import requests
-import pandas as pd
 
-# 1. Configuración limpia
+# === 1. CONFIGURACIÓN LIMPIA ===
 st.set_page_config(page_title="Precios Combustible", page_icon="⛽", layout="centered")
 
 st.markdown("""
@@ -19,10 +18,14 @@ st.markdown("""
             border-radius: 8px !important;
             border: 1px solid #ccc !important;
         }
+        /* Pequeño ajuste para que los botones de borrar no tengan un padding excesivo */
+        .stButton button {
+            width: 100%;
+        }
     </style>
 """, unsafe_allow_html=True)
 
-# 2. Función JS para ocultar teclado en móviles
+# === 2. FUNCIÓN JS PARA OCULTAR TECLADO EN MÓVILES ===
 def ocultar_teclado():
     components.html(
         """<script>
@@ -32,17 +35,18 @@ def ocultar_teclado():
         </script>""", height=0, width=0
     )
 
-# 3. Carga de Datos
-@st.cache_data(ttl=3600, show_spinner="Sincronizando...")
+# === 3. CARGA DE DATOS ===
+@st.cache_data(ttl=3600, show_spinner="Sincronizando con el Ministerio...")
 def cargar_datos():
     url = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/"
     try:
         r = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=20)
         return r.json()["ListaEESSPrecio"]
-    except:
+    except Exception as e:
+        st.error(f"Error de conexión: {e}")
         return None
 
-# 4. Gestión de Favoritos
+# === 4. GESTIÓN DE FAVORITOS (Vía URL Params) ===
 def obtener_favoritos():
     if "favs" in st.query_params:
         return st.query_params["favs"].split("|")
@@ -53,8 +57,7 @@ def guardar_favorito(id_gas):
     if id_gas not in actuales:
         actuales.append(id_gas)
         st.query_params["favs"] = "|".join(actuales)
-        st.toast("Añadido a favoritos", icon="✅")
-        st.rerun()
+        st.toast("¡Añadido a favoritos!", icon="✅")
 
 def eliminar_favorito(id_gas):
     actuales = obtener_favoritos()
@@ -65,83 +68,102 @@ def eliminar_favorito(id_gas):
         else:
             del st.query_params["favs"]
         st.toast("Eliminado de favoritos", icon="🗑️")
-        st.rerun()
 
-# --- INICIO DE LA INTERFAZ ---
+
+# ==========================================
+# === INICIO DE LA INTERFAZ DE USUARIO ===
+# ==========================================
+
 st.markdown("<h2 style='text-align: center;'>⛽ Precios Combustible</h2>", unsafe_allow_html=True)
 
 datos = cargar_datos()
 
 if datos:
     favs_ids = obtener_favoritos()
-    municipios_unicos = sorted(list(set([g["Municipio"] for g in datos])))
+    # Limpiamos y ordenamos los municipios
+    municipios_unicos = sorted(list(set([g.get("Municipio", "") for g in datos if g.get("Municipio")])))
     
-    # === 1. SECCIÓN DE BÚSQUEDA ===
+    # --- SECCIÓN A: BÚSQUEDA ---
+    st.markdown("### 🔍 Buscar Gasolineras")
     municipio_sel = st.selectbox(
-        "🔍 Buscar municipio:",
-        options=municipios_unicos,
-        index=None,
-        placeholder="Empieza a escribir (ej. IRU) y elige en la lista..."
+        "Selecciona un municipio:",
+        options=[""] + municipios_unicos,
+        index=0
     )
-    
+
     if municipio_sel:
-        # Forzamos que el teclado del móvil se esconda al seleccionar
-        ocultar_teclado()
+        # Filtramos los datos por el municipio elegido
+        resultados = [g for g in datos if g.get("Municipio") == municipio_sel]
         
-        # Filtramos los resultados excluyendo los que YA están en favoritos
-        resultados = [g for g in datos if g["Municipio"] == municipio_sel and f"{g['Rótulo']}~{g['Dirección']}" not in favs_ids]
+        st.caption(f"Se han encontrado {len(resultados)} gasolineras en {municipio_sel}.")
         
-        if resultados:
-            st.caption(f"Estaciones disponibles para añadir en **{municipio_sel}**:")
-            for g in resultados:
-                g_id = f"{g['Rótulo']}~{g['Dirección']}"
-                
-                with st.container(border=True):
-                    col_info, col_btn = st.columns([3, 1])
-                    with col_info:
-                        st.markdown(f"**{g['Rótulo']} - {g['Municipio']}**<br><span style='color: gray; font-size: 0.85em;'>{g['Dirección']}</span>", unsafe_allow_html=True)
-                        d_val = f"{g['Precio Gasoleo A']} €" if g['Precio Gasoleo A'] else "--"
-                        g_val = f"{g['Precio Gasolina 95 E5']} €" if g['Precio Gasolina 95 E5'] else "--"
-                        st.markdown(f"<span style='font-size: 0.85em;'><b>D:</b> {d_val} | <b>G:</b> {g_val}</span>", unsafe_allow_html=True)
-                    
-                    with col_btn:
-                        # Ya no hace falta comprobar si está en favoritos porque los hemos filtrado antes
-                        if st.button("⭐ Añadir", key=f"add-{g_id}", type="primary", use_container_width=True):
-                            guardar_favorito(g_id)
-        else:
-            # Si el array está vacío, significa que ya has guardado todas las de ese pueblo
-            st.success(f"¡Genial! Todas las gasolineras de {municipio_sel} ya están en tu lista de guardadas. 🎉")
-
-    st.divider()
-
-    # === 2. SECCIÓN DE FAVORITOS ===
-    if favs_ids:
-        c_title, c_sort = st.columns([1.5, 1])
-        with c_title:
-            st.write("### ⭐ Guardadas")
-        with c_sort:
-            orden = st.radio("Orden", ["Diésel", "G95"], horizontal=True, label_visibility="collapsed")
-            col_sort = "Precio Gasoleo A" if orden == "Diésel" else "Precio Gasolina 95 E5"
-        
-        lista_favs = [g for g in datos if f"{g['Rótulo']}~{g['Dirección']}" in favs_ids]
-        df_favs = pd.DataFrame(lista_favs)
-        
-        df_favs["Precio Gasoleo A"] = pd.to_numeric(df_favs["Precio Gasoleo A"].str.replace(",", "."), errors='coerce')
-        df_favs["Precio Gasolina 95 E5"] = pd.to_numeric(df_favs["Precio Gasolina 95 E5"].str.replace(",", "."), errors='coerce')
-        df_favs = df_favs.sort_values(by=col_sort)
-        
-        for _, gas in df_favs.iterrows():
-            g_id = f"{gas['Rótulo']}~{gas['Dirección']}"
+        for gas in resultados:
+            id_gas = gas.get("IDEESS")
+            nombre = gas.get("Rótulo", "Gasolinera")
+            direccion = gas.get("Dirección", "")
+            precio_95 = gas.get("Precio Gasolina 95 E5", "N/D")
             
-            with st.container(border=True):
-                st.markdown(f"**{gas['Rótulo']} - {gas['Municipio']}**<br><span style='color: gray; font-size: 0.9em;'>{gas['Dirección']}</span>", unsafe_allow_html=True)
+            # Solo mostramos el botón de añadir si NO está ya en favoritos
+            if id_gas not in favs_ids:
+                with st.container():
+                    col1, col2 = st.columns([0.7, 0.3])
+                    with col1:
+                        st.markdown(f"**{nombre}**")
+                        st.caption(f"📍 {direccion} | 💶 **{precio_95} €/L**")
+                    with col2:
+                        st.button(
+                            "⭐ Añadir", 
+                            key=f"add_{id_gas}", 
+                            on_click=guardar_favorito, 
+                            args=(id_gas,)
+                        )
+                    st.markdown("<hr style='margin: 0.5rem 0; border-top: 1px solid #f0f0f0;'>", unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # --- SECCIÓN B: FAVORITOS ---
+    st.markdown("### ⭐ Tus Favoritas")
+    
+    if not favs_ids:
+        st.info("Aún no tienes gasolineras guardadas. Busca un municipio y añade algunas.")
+    else:
+        # Extraemos solo las gasolineras que coinciden con los IDs guardados
+        gasolineras_favs = [g for g in datos if str(g.get("IDEESS")) in favs_ids]
+        
+        for gasolinera in gasolineras_favs:
+            id_gas = str(gasolinera.get("IDEESS"))
+            nombre = gasolinera.get("Rótulo", "Gasolinera")
+            direccion = gasolinera.get("Dirección", "")
+            precio_gasolina = gasolinera.get("Precio Gasolina 95 E5", "N/D")
+            precio_diesel = gasolinera.get("Precio Gasoleo A", "N/D") # Añadido el diésel por si acaso
+            
+            # La tarjeta de favoritos con la "X" en la esquina superior derecha
+            with st.container():
+                col_info, col_btn = st.columns([0.85, 0.15])
                 
-                d_val = f"{gas['Precio Gasoleo A']} €" if pd.notna(gas['Precio Gasoleo A']) else "--"
-                g_val = f"{gas['Precio Gasolina 95 E5']} €" if pd.notna(gas['Precio Gasolina 95 E5']) else "--"
-                st.markdown(f"**Diésel:** {d_val}   |   **G95:** {g_val}")
+                with col_info:
+                    st.markdown(f"**{nombre}**")
+                    st.caption(f"📍 {direccion}")
                 
-                if st.button("🗑️ Borrar", key=f"del-{g_id}", use_container_width=True):
-                    eliminar_favorito(g_id)
-                    
+                with col_btn:
+                    # Botón de borrar anclado a la derecha
+                    st.button(
+                        "❌", 
+                        key=f"del_{id_gas}", 
+                        help="Eliminar de favoritos", 
+                        on_click=eliminar_favorito, 
+                        args=(id_gas,)
+                    )
+                
+                # Precios destacados debajo
+                st.markdown(f"""
+                    <div style='display: flex; gap: 15px; margin-top: -5px;'>
+                        <span style='color: #2c3e50; font-size: 1.1rem;'>⛽ 95: <b>{precio_gasolina} €/L</b></span>
+                        <span style='color: #2c3e50; font-size: 1.1rem;'>🛢️ Diésel: <b>{precio_diesel} €/L</b></span>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("<hr style='margin: 1rem 0; border-top: 1px solid #ddd;'>", unsafe_allow_html=True)
+
 else:
-    st.error("No se ha podido conectar con el Ministerio en este momento.")
+    st.error("No se pudieron cargar los datos. Por favor, recarga la página en unos minutos.")
