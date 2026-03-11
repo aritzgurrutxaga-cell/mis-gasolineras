@@ -14,8 +14,8 @@ st.markdown("""
         hr {
             margin: 0.8rem 0 !important;
         }
-        /* Hacemos que la caja de texto destaque un poco sin ser gigante */
-        .stTextInput input {
+        /* Ajustes para que la caja de sugerencias sea elegante */
+        div[data-baseweb="select"] > div {
             border-radius: 8px !important;
             border: 1px solid #ccc !important;
         }
@@ -64,48 +64,47 @@ datos = cargar_datos()
 
 if datos:
     favs_ids = obtener_favoritos()
+    municipios_unicos = sorted(list(set([g["Municipio"] for g in datos])))
     
-    # === 1. SECCIÓN DE BÚSQUEDA PURA (Letras seguidas exactas) ===
-    busqueda = st.text_input("🔍 Buscar municipio:", placeholder="Escribe aquí (ej. IRU)...").upper()
+    # === 1. SECCIÓN DE BÚSQUEDA ===
+    municipio_sel = st.selectbox(
+        "🔍 Buscar municipio:",
+        options=municipios_unicos,
+        index=None,
+        placeholder="Empieza a escribir (ej. IRU) y elige en la lista..."
+    )
     
-    if len(busqueda) >= 3:
-        # Filtrado estricto: la secuencia de texto debe ser exacta y seguida
-        resultados = [g for g in datos if busqueda in g["Municipio"].upper()]
+    if municipio_sel:
+        resultados = [g for g in datos if g["Municipio"] == municipio_sel]
         
-        if resultados:
-            st.caption(f"Resultados exactos para '{busqueda}':")
-            for g in resultados:
-                g_id = f"{g['Rótulo']}~{g['Dirección']}"
+        st.caption(f"Resultados para **{municipio_sel}**:")
+        for g in resultados:
+            g_id = f"{g['Rótulo']}~{g['Dirección']}"
+            
+            with st.container(border=True):
+                col_info, col_btn = st.columns([3, 1])
+                with col_info:
+                    # AQUÍ ESTÁ EL CAMBIO: Rótulo - Municipio en el título principal
+                    st.markdown(f"**{g['Rótulo']} - {g['Municipio']}**<br><span style='color: gray; font-size: 0.85em;'>{g['Dirección']}</span>", unsafe_allow_html=True)
+                    d_val = f"{g['Precio Gasoleo A']} €" if g['Precio Gasoleo A'] else "--"
+                    g_val = f"{g['Precio Gasolina 95 E5']} €" if g['Precio Gasolina 95 E5'] else "--"
+                    st.markdown(f"<span style='font-size: 0.85em;'><b>D:</b> {d_val} | <b>G:</b> {g_val}</span>", unsafe_allow_html=True)
                 
-                with st.container(border=True):
-                    col_info, col_btn = st.columns([3, 1])
-                    with col_info:
-                        st.markdown(f"**{g['Rótulo']}**<br><span style='color: gray; font-size: 0.85em;'>{g['Dirección']} ({g['Municipio']})</span>", unsafe_allow_html=True)
-                        d_val = f"{g['Precio Gasoleo A']} €" if g['Precio Gasoleo A'] else "--"
-                        g_val = f"{g['Precio Gasolina 95 E5']} €" if g['Precio Gasolina 95 E5'] else "--"
-                        st.markdown(f"<span style='font-size: 0.85em;'><b>D:</b> {d_val} | <b>G:</b> {g_val}</span>", unsafe_allow_html=True)
-                    
-                    with col_btn:
-                        if g_id in favs_ids:
-                            st.button("✅", key=f"saved-{g_id}", disabled=True, use_container_width=True)
-                        else:
-                            if st.button("⭐ Añadir", key=f"add-{g_id}", type="primary", use_container_width=True):
-                                guardar_favorito(g_id)
-        else:
-            st.warning("No se ha encontrado ningún municipio con ese texto exacto.")
-    elif len(busqueda) > 0:
-        st.caption("Escribe al menos 3 letras...")
+                with col_btn:
+                    if g_id in favs_ids:
+                        st.button("✅", key=f"saved-{g_id}", disabled=True, use_container_width=True)
+                    else:
+                        if st.button("⭐ Añadir", key=f"add-{g_id}", type="primary", use_container_width=True):
+                            guardar_favorito(g_id)
 
     st.divider()
 
-    # === 2. SECCIÓN DE FAVORITOS (Con selector ultra-compacto) ===
+    # === 2. SECCIÓN DE FAVORITOS ===
     if favs_ids:
-        # Colocamos el título y el selector de orden en la misma línea
         c_title, c_sort = st.columns([1.5, 1])
         with c_title:
             st.write("### ⭐ Guardadas")
         with c_sort:
-            # Selector sutil, sin título gigante
             orden = st.radio("Orden", ["Diésel", "G95"], horizontal=True, label_visibility="collapsed")
             col_sort = "Precio Gasoleo A" if orden == "Diésel" else "Precio Gasolina 95 E5"
         
@@ -120,7 +119,8 @@ if datos:
             g_id = f"{gas['Rótulo']}~{gas['Dirección']}"
             
             with st.container(border=True):
-                st.markdown(f"**{gas['Rótulo']}**<br><span style='color: gray; font-size: 0.9em;'>{gas['Dirección']}</span>", unsafe_allow_html=True)
+                # AQUÍ ESTÁ EL CAMBIO: Rótulo - Municipio en los favoritos también
+                st.markdown(f"**{gas['Rótulo']} - {gas['Municipio']}**<br><span style='color: gray; font-size: 0.9em;'>{gas['Dirección']}</span>", unsafe_allow_html=True)
                 
                 d_val = f"{gas['Precio Gasoleo A']} €" if pd.notna(gas['Precio Gasoleo A']) else "--"
                 g_val = f"{gas['Precio Gasolina 95 E5']} €" if pd.notna(gas['Precio Gasolina 95 E5']) else "--"
