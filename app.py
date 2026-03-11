@@ -6,28 +6,18 @@ import pandas as pd
 # 1. Configuración limpia
 st.set_page_config(page_title="Precios Combustible", page_icon="⛽", layout="centered")
 
-# Estilos personalizados para la "X" roja y limpieza de interfaz
 st.markdown("""
     <style>
         #MainMenu, footer, header {visibility: hidden;}
-        .block-container { padding: 1rem !important; }
-        hr { margin: 0.8rem 0 !important; }
-        
-        /* Estilo para el botón X de borrado */
-        .stButton button[kind="secondary"] {
-            color: #ff4b4b !important;
-            border-color: #ff4b4b !important;
-            background-color: transparent !important;
-            font-weight: bold !important;
-            border-radius: 50% !important;
-            width: 35px !important;
-            height: 35px !important;
-            padding: 0 !important;
-            line-height: 1 !important;
+        .block-container {
+            padding: 1rem !important;
         }
-        .stButton button[kind="secondary"]:hover {
-            color: white !important;
-            background-color: #ff4b4b !important;
+        hr {
+            margin: 0.8rem 0 !important;
+        }
+        div[data-baseweb="select"] > div {
+            border-radius: 8px !important;
+            border: 1px solid #ccc !important;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -91,38 +81,44 @@ if datos:
         "🔍 Buscar municipio:",
         options=municipios_unicos,
         index=None,
-        placeholder="Empieza a escribir y elige..."
+        placeholder="Empieza a escribir (ej. IRU) y elige en la lista..."
     )
     
     if municipio_sel:
         ocultar_teclado()
+        
         resultados = [g for g in datos if g["Municipio"] == municipio_sel and f"{g['Rótulo']}~{g['Dirección']}" not in favs_ids]
         
         if resultados:
-            st.caption(f"Estaciones disponibles en **{municipio_sel}**:")
+            st.caption(f"Estaciones disponibles para añadir en **{municipio_sel}**:")
             for g in resultados:
                 g_id = f"{g['Rótulo']}~{g['Dirección']}"
+                
                 with st.container(border=True):
                     col_info, col_btn = st.columns([3, 1])
                     with col_info:
-                        st.markdown(f"**{g['Rótulo']}**<br><span style='color: gray; font-size: 0.85em;'>{g['Dirección']}</span>", unsafe_allow_html=True)
+                        st.markdown(f"**{g['Rótulo']} - {g['Municipio']}**<br><span style='color: gray; font-size: 0.85em;'>{g['Dirección']}</span>", unsafe_allow_html=True)
                         d_val = f"{g['Precio Gasoleo A']} €" if g['Precio Gasoleo A'] else "--"
                         g_val = f"{g['Precio Gasolina 95 E5']} €" if g['Precio Gasolina 95 E5'] else "--"
                         st.markdown(f"<span style='font-size: 0.85em;'><b>D:</b> {d_val} | <b>G:</b> {g_val}</span>", unsafe_allow_html=True)
+                    
                     with col_btn:
                         if st.button("⭐ Añadir", key=f"add-{g_id}", type="primary", use_container_width=True):
                             guardar_favorito(g_id)
         else:
-            st.success(f"¡Genial! Todas las gasolineras de {municipio_sel} ya están guardadas. 🎉")
+            st.success(f"¡Genial! Todas las gasolineras de {municipio_sel} ya están en tu lista de guardadas. 🎉")
 
     st.divider()
 
     # === 2. SECCIÓN DE FAVORITOS ===
     if favs_ids:
-        c_title, c_sort = st.columns([1.5, 1])
-        with c_title:
-            st.write("### ⭐ Guardadas")
-        with c_sort:
+        st.write("### ⭐ Guardadas")
+        
+        # Implementación del texto aclaratorio antes del selector de orden
+        col_txt, col_opt = st.columns([1, 1])
+        with col_txt:
+            st.write("Ordenar por precio de:")
+        with col_opt:
             orden = st.radio("Orden", ["Diésel", "G95"], horizontal=True, label_visibility="collapsed")
             col_sort = "Precio Gasoleo A" if orden == "Diésel" else "Precio Gasolina 95 E5"
         
@@ -137,21 +133,14 @@ if datos:
             g_id = f"{gas['Rótulo']}~{gas['Dirección']}"
             
             with st.container(border=True):
-                # Cabecera de la tarjeta con la X roja en la esquina
-                col_card_info, col_card_del = st.columns([0.85, 0.15])
-                with col_card_info:
-                    st.markdown(f"**{gas['Rótulo']}** - <span style='font-size: 0.9em; color: gray;'>{gas['Municipio']}</span>", unsafe_allow_html=True)
-                with col_card_del:
-                    # Usamos kind="secondary" para aplicar el estilo CSS de la X roja circular
-                    if st.button("X", key=f"del-{g_id}", help="Borrar favorito"):
-                        eliminar_favorito(g_id)
+                st.markdown(f"**{gas['Rótulo']} - {gas['Municipio']}**<br><span style='color: gray; font-size: 0.9em;'>{gas['Dirección']}</span>", unsafe_allow_html=True)
                 
-                st.markdown(f"<span style='color: gray; font-size: 0.85em;'>{gas['Dirección']}</span>", unsafe_allow_html=True)
+                d_val = f"{gas['Precio Gasoleo A']} €" if pd.notna(gas['Precio Gasoleo A']) else "--"
+                g_val = f"{gas['Precio Gasolina 95 E5']} €" if pd.notna(gas['Precio Gasolina 95 E5']) else "--"
+                st.markdown(f"**Diésel:** {d_val}   |   **G95:** {g_val}")
                 
-                # Precios en una línea limpia
-                d_val = f"**{gas['Precio Gasoleo A']:.3f}** €" if pd.notna(gas['Precio Gasoleo A']) else "--"
-                g_val = f"**{gas['Precio Gasolina 95 E5']:.3f}** €" if pd.notna(gas['Precio Gasolina 95 E5']) else "--"
-                st.markdown(f"⛽ **D:** {d_val}  |  **G95:** {g_val}")
+                if st.button("🗑️ Borrar", key=f"del-{g_id}", use_container_width=True):
+                    eliminar_favorito(g_id)
                     
 else:
     st.error("No se ha podido conectar con el Ministerio en este momento.")
