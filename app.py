@@ -20,6 +20,16 @@ class SSLAdapter(HTTPAdapter):
 # 1. Configuración de la página
 st.set_page_config(page_title="Buscador Gasolineras", page_icon="⛽", layout="centered")
 
+# Título adaptable en una sola línea (HTML inline para evitar bloque CSS separado)
+st.markdown(
+    """
+    <h1 style='text-align: center; font-size: clamp(24px, 7vw, 40px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>
+        ⛽ Buscador Gasolineras
+    </h1>
+    """, 
+    unsafe_allow_html=True
+)
+
 # 2. Carga de Datos con Backup Persistente
 @st.cache_data(ttl=3600)
 def cargar_datos():
@@ -48,24 +58,21 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
     a = np.sin(dlat / 2)**2 + np.cos(np.radians(lat1)) * np.cos(np.radians(lat2)) * np.sin(dlon / 2)**2
     return R * 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
 
-# --- INTERFAZ ---
-st.title("⛽ Buscador Gasolineras")
-
+# --- LÓGICA PRINCIPAL ---
 datos, fecha_act = cargar_datos()
 
 if datos:
     df = pd.DataFrame(datos)
-    # Limpieza numérica de lat/lon
     df["lat_num"] = pd.to_numeric(df["Latitud"].str.replace(",", "."), errors='coerce')
     df["lon_num"] = pd.to_numeric(df["Longitud (WGS84)"].str.replace(",", "."), errors='coerce')
     
-    # Limpiar ambos precios siempre para mostrarlos
+    # Pre-limpieza de ambos precios
     df["Precio_Diesel"] = pd.to_numeric(df["Precio Gasoleo A"].str.replace(",", "."), errors='coerce')
     df["Precio_G95"] = pd.to_numeric(df["Precio Gasolina 95 E5"].str.replace(",", "."), errors='coerce')
     
     municipios_unicos = sorted(list(set([str(g["Municipio"]) for g in datos])))
 
-    # Lógica GPS
+    # GPS
     loc = get_geolocation()
     lat_gps, lon_gps, muni_gps = None, None, None
 
@@ -104,11 +111,10 @@ if datos:
     # --- RESULTADOS ---
     if lat_ref and lon_ref:
         df["Distancia"] = calcular_distancia(lat_ref, lon_ref, df["lat_num"], df["lon_num"])
-        # Filtramos por radio y por aquellas que tengan al menos el precio por el que ordenamos
         res = df[(df["Distancia"] <= radio_km) & (df[col_orden].notna())].sort_values(col_orden)
 
         st.divider()
-        st.subheader(f"📉 Más baratas cerca de {origen_label}")
+        st.subheader(f"📉 Baratas cerca de {origen_label}")
         st.caption(f"Ordenado por: {st.session_state.tipo_orden}")
         
         if not res.empty:
@@ -116,9 +122,9 @@ if datos:
                 with st.container(border=True):
                     col_info, col_btn = st.columns([3, 1])
                     with col_info:
+                        # Nombre - Municipio
                         st.write(f"### {g['Rótulo']} - {g['Municipio']}")
                         
-                        # Mostramos AMBOS precios
                         p_diesel = f"{g['Precio Gasoleo A']} €" if pd.notnull(g['Precio_Diesel']) else "N/A"
                         p_g95 = f"{g['Precio Gasolina 95 E5']} €" if pd.notnull(g['Precio_G95']) else "N/A"
                         
@@ -128,13 +134,13 @@ if datos:
                         url_map = f"https://www.google.com/maps?q={g['lat_num']},{g['lon_num']}"
                         st.link_button("Ir", url_map, use_container_width=True)
         else:
-            st.warning("No hay gasolineras disponibles en este radio.")
+            st.warning("No hay resultados en este radio.")
 
-    # --- BLOQUE 3: CONFIGURACIÓN AL FINAL (PEQUEÑO) ---
+    # --- BLOQUE 3: SELECTOR AL FINAL (PEQUEÑO) ---
     st.write("---")
     st.caption("Configuración de ordenación:")
     st.session_state.tipo_orden = st.radio(
-        "Ordenar la lista por precio de:", 
+        "Filtrar y ordenar por:", 
         ["Diésel", "G95"], 
         horizontal=True,
         index=0 if st.session_state.tipo_orden == "Diésel" else 1
@@ -142,6 +148,6 @@ if datos:
 
     # Pie de página
     if fecha_act:
-        st.caption(f"Última actualización: {fecha_act.strftime('%d/%m/%Y %H:%M:%S')}")
+        st.caption(f"Actualizado: {fecha_act.strftime('%d/%m/%Y %H:%M:%S')}")
 else:
-    st.error("No se han podido cargar los datos.")
+    st.error("Sin conexión a los datos oficiales.")
