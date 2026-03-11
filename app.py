@@ -3,13 +3,13 @@ import requests
 import pandas as pd
 from streamlit_local_storage import LocalStorage
 
-# Configuración de página
-st.set_page_config(page_title="Gasolineras Pro", page_icon="⛽", layout="centered")
+# 1. Configuración Profesional de la App
+st.set_page_config(page_title="Precios Combustible", page_icon="⛽", layout="centered")
 
-# Inicializar almacenamiento local en el navegador del usuario
+# Inicializar almacenamiento local
 local_storage = LocalStorage()
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600, show_spinner="Actualizando precios a nivel nacional...")
 def cargar_datos():
     url = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/"
     try:
@@ -18,14 +18,7 @@ def cargar_datos():
     except:
         return None
 
-def limpiar_precio(valor):
-    if not valor: return None
-    try:
-        return float(valor.replace(",", "."))
-    except:
-        return None
-
-# --- LÓGICA DE FAVORITOS ---
+# --- LÓGICA DE ALMACENAMIENTO ---
 def obtener_favoritos():
     favs = local_storage.getItem("gas_favs")
     return favs if favs else []
@@ -44,58 +37,91 @@ def eliminar_favorito(id_gas):
         local_storage.setItem("gas_favs", actuales)
         st.rerun()
 
-# --- INTERFAZ ---
-st.title("⛽ Gasolineras Pro")
+# --- INTERFAZ PRINCIPAL ---
+st.title("⛽ Precios Combustible")
+st.markdown("Consulta y compara las estaciones de servicio actualizadas.")
+
 datos = cargar_datos()
 
 if datos:
     favs_ids = obtener_favoritos()
     
-    # 1. SECCIÓN DE FAVORITOS (Arriba)
-    if favs_ids:
-        st.subheader("⭐ Tus Gasolineras Habituales")
-        for f_id in favs_ids:
-            # Buscar datos de la gasolinera guardada
-            gas = next((g for g in datos if f"{g['Rótulo']}-{g['Dirección']}" == f_id), None)
-            if gas:
-                with st.expander(f"⭐ {gas['Rótulo']} - {gas['Municipio']}", expanded=True):
-                    c1, c2, c3 = st.columns(3)
-                    c1.metric("Diésel A", f"{gas['Precio Gasoleo A']} €")
-                    c2.metric("G95 E5", f"{gas['Precio Gasolina 95 E5']} €")
-                    if st.button("Quitar de favoritos", key=f"del-{f_id}"):
-                        eliminar_favorito(f_id)
-        st.divider()
+    # Creación de Pestañas para una navegación limpia
+    tab_favs, tab_buscar = st.tabs(["⭐ Mis Favoritos", "🔍 Buscar y Añadir"])
+    
+    # ==========================================
+    # PESTAÑA 1: FAVORITOS (Con ordenación dinámica)
+    # ==========================================
+    with tab_favs:
+        if favs_ids:
+            st.write("### Tus estaciones guardadas")
+            
+            # Selector de ordenación integrado en la interfaz
+            orden_combustible = st.radio(
+                "Ordenar ranking por precio de:", 
+                ["Diésel A", "Gasolina 95 E5"], 
+                horizontal=True
+            )
+            col_sort = "Precio Gasoleo A" if orden_combustible == "Diésel A" else "Precio Gasolina 95 E5"
+            
+            # Extraemos solo los datos de los favoritos para ordenarlos
+            lista_favs = [g for g in datos if f"{g['Rótulo']}-{g['Dirección']}" in favs_ids]
+            df_favs = pd.DataFrame(lista_favs)
+            
+            # Limpieza y ordenación matemática
+            df_favs["Precio Gasoleo A"] = pd.to_numeric(df_favs["Precio Gasoleo A"].str.replace(",", "."), errors='coerce')
+            df_favs["Precio Gasolina 95 E5"] = pd.to_numeric(df_favs["Precio Gasolina 95 E5"].str.replace(",", "."), errors='coerce')
+            df_favs = df_favs.sort_values(by=col_sort)
+            
+            # Renderizado de las tarjetas ordenadas
+            for _, gas in df_favs.iterrows():
+                g_id = f"{gas['Rótulo']}-{gas['Dirección']}"
+                with st.container(border=True):
+                    c1, c2 = st.columns([3, 1])
+                    c1.markdown(f"**{gas['Rótulo']}**")
+                    c1.caption(f"📍 {gas['Dirección']} ({gas['Municipio']})")
+                    if c2.button("❌ Quitar", key=f"del-{g_id}"):
+                        eliminar_favorito(g_id)
+                    
+                    p1, p2, p3 = st.columns(3)
+                    p1.metric("Diésel A", f"{gas['Precio Gasoleo A']} €" if pd.notna(gas['Precio Gasoleo A']) else "N/A")
+                    p2.metric("G95 E5", f"{gas['Precio Gasolina 95 E5']} €" if pd.notna(gas['Precio Gasolina 95 E5']) else "N/A")
+                    
+                    lat = str(gas["Latitud"]).replace(",", ".")
+                    lon = str(gas["Longitud (WGS84)"]).replace(",", ".")
+                    p3.write("")
+                    p3.link_button("🗺️ Ruta", f"https://www.google.com/maps?q={lat},{lon}")
+        else:
+            st.info("Aún no tienes gasolineras favoritas. Ve a la pestaña 'Buscar y Añadir' para empezar a guardar tus estaciones habituales.")
 
-    # 2. BÚSQUEDA PRINCIPAL
-    st.subheader("🔍 Buscar nuevas gasolineras")
-    municipios = sorted(list(set([g["Municipio"] for g in datos])))
-    municipio_sel = st.selectbox("Selecciona Municipio:", ["Busca un pueblo..."] + municipios)
+    # ==========================================
+    # PESTAÑA 2: BUSCADOR
+    # ==========================================
+    with tab_buscar:
+        st.write("### Explorar nuevos municipios")
+        municipios = sorted(list(set([g["Municipio"] for g in datos])))
+        municipio_sel = st.selectbox("Selecciona Municipio:", ["Seleccionar..."] + municipios)
 
-    if municipio_sel != "Busca un pueblo...":
-        resultados = [g for g in datos if g["Municipio"] == municipio_sel]
-        
-        for g in resultados:
-            g_id = f"{g['Rótulo']}-{g['Dirección']}"
-            with st.container(border=True):
-                col_info, col_btn = st.columns([3, 1])
-                col_info.markdown(f"**{g['Rótulo']}**")
-                col_info.caption(f"{g['Dirección']}")
-                
-                # Botón dinámico según si ya es favorito o no
-                if g_id in favs_ids:
-                    col_btn.write("✅ Guardada")
-                else:
-                    if col_btn.button("Añadir ⭐", key=f"add-{g_id}"):
-                        guardar_favorito(g_id)
-                
-                # Precios
-                p1, p2, p3 = st.columns(3)
-                p1.write(f"**Diésel:** {g['Precio Gasoleo A']}€")
-                p2.write(f"**G95:** {g['Precio Gasolina 95 E5']}€")
-                
-                lat = g["Latitud"].replace(",", ".")
-                lon = g["Longitud (WGS84)"].replace(",", ".")
-                p3.link_button("🗺️ Ir", f"https://www.google.com/maps?q={lat},{lon}")
+        if municipio_sel != "Seleccionar...":
+            resultados = [g for g in datos if g["Municipio"] == municipio_sel]
+            
+            for g in resultados:
+                g_id = f"{g['Rótulo']}-{g['Dirección']}"
+                with st.container(border=True):
+                    col_info, col_btn = st.columns([3, 1])
+                    col_info.markdown(f"**{g['Rótulo']}**")
+                    col_info.caption(f"{g['Dirección']}")
+                    
+                    if g_id in favs_ids:
+                        col_btn.success("⭐ Guardada")
+                    else:
+                        if col_btn.button("Añadir", key=f"add-{g_id}", type="primary"):
+                            guardar_favorito(g_id)
+                    
+                    # Mostrar precios rápidos en la búsqueda
+                    d_precio = g['Precio Gasoleo A'] if g['Precio Gasoleo A'] else "--"
+                    g_precio = g['Precio Gasolina 95 E5'] if g['Precio Gasolina 95 E5'] else "--"
+                    st.write(f"⛽ **Diésel:** {d_precio} €/L | **G95:** {g_precio} €/L")
 
 else:
-    st.error("No se han podido cargar los precios. Inténtalo de nuevo.")
+    st.error("No se han podido cargar los precios. El servicio del Gobierno podría estar en mantenimiento.")
