@@ -8,7 +8,7 @@ from streamlit_js_eval import get_geolocation
 from requests.adapters import HTTPAdapter
 from urllib3.util.ssl_ import create_urllib3_context
 
-# --- ADAPTADOR SSL (Para saltar bloqueos del Ministerio) ---
+# --- ADAPTADOR SSL ---
 class SSLAdapter(HTTPAdapter):
     def init_poolmanager(self, *args, **kwargs):
         context = create_urllib3_context()
@@ -58,25 +58,28 @@ if datos:
     # Limpieza numérica de lat/lon
     df["lat_num"] = pd.to_numeric(df["Latitud"].str.replace(",", "."), errors='coerce')
     df["lon_num"] = pd.to_numeric(df["Longitud (WGS84)"].str.replace(",", "."), errors='coerce')
+    
+    # Limpiar ambos precios siempre para mostrarlos
+    df["Precio_Diesel"] = pd.to_numeric(df["Precio Gasoleo A"].str.replace(",", "."), errors='coerce')
+    df["Precio_G95"] = pd.to_numeric(df["Precio Gasolina 95 E5"].str.replace(",", "."), errors='coerce')
+    
     municipios_unicos = sorted(list(set([str(g["Municipio"]) for g in datos])))
 
-    # Lógica GPS Silenciosa para el pre-rellenado
+    # Lógica GPS
     loc = get_geolocation()
     lat_gps, lon_gps, muni_gps = None, None, None
 
     if loc and 'coords' in loc:
         lat_gps = loc['coords']['latitude']
         lon_gps = loc['coords']['longitude']
-        # Buscar municipio más cercano para pre-rellenar el selector visualmente
         df["dist_temp"] = calcular_distancia(lat_gps, lon_gps, df["lat_num"], df["lon_num"])
         muni_gps = df.sort_values("dist_temp").iloc[0]["Municipio"]
 
-    # --- BLOQUE 1: UBICACIÓN UNIFICADA ---
+    # --- BLOQUE 1: UBICACIÓN ---
     with st.container(border=True):
         idx = municipios_unicos.index(muni_gps) if muni_gps in municipios_unicos else None
         municipio_manual = st.selectbox("📍 Ubicación:", options=municipios_unicos, index=idx)
         
-        # Lógica de prioridad de coordenadas
         if lat_gps and (municipio_manual == muni_gps or municipio_manual is None):
             lat_ref, lon_ref = lat_gps, lon_gps
             origen_label = "tu ubicación exacta"
@@ -87,54 +90,57 @@ if datos:
             origen_label = municipio_manual
         else:
             lat_ref, lon_ref = None, None
-            st.info("⌛ Esperando señal GPS o elige un municipio...")
+            st.info("⌛ Esperando señal GPS o selecciona municipio...")
 
     # --- BLOQUE 2: RADIO ---
     radio_km = st.slider("Radio de búsqueda (Km):", 1, 50, 10)
 
-    # --- LÓGICA DE COMBUSTIBLE (ESTADO) ---
-    if 'tipo_combustible' not in st.session_state:
-        st.session_state.tipo_combustible = "Diésel"
+    # --- LÓGICA DE ORDENACIÓN (ESTADO) ---
+    if 'tipo_orden' not in st.session_state:
+        st.session_state.tipo_orden = "Diésel"
 
-    combustible = st.session_state.tipo_combustible
-    col_precio = "Precio Gasoleo A" if combustible == "Diésel" else "Precio Gasolina 95 E5"
+    col_orden = "Precio_Diesel" if st.session_state.tipo_orden == "Diésel" else "Precio_G95"
 
     # --- RESULTADOS ---
     if lat_ref and lon_ref:
-        df["precio_num"] = pd.to_numeric(df[col_precio].str.replace(",", "."), errors='coerce')
         df["Distancia"] = calcular_distancia(lat_ref, lon_ref, df["lat_num"], df["lon_num"])
-        res = df[(df["Distancia"] <= radio_km) & (df["precio_num"].notna())].sort_values("precio_num")
+        # Filtramos por radio y por aquellas que tengan al menos el precio por el que ordenamos
+        res = df[(df["Distancia"] <= radio_km) & (df[col_orden].notna())].sort_values(col_orden)
 
         st.divider()
-        st.subheader(f"📉 {combustible} cerca de {origen_label}")
+        st.subheader(f"📉 Más baratas cerca de {origen_label}")
+        st.caption(f"Ordenado por: {st.session_state.tipo_orden}")
         
         if not res.empty:
             for _, g in res.head(15).iterrows():
                 with st.container(border=True):
                     col_info, col_btn = st.columns([3, 1])
                     with col_info:
-                        # Formato: Nombre - Municipio
                         st.write(f"### {g['Rótulo']} - {g['Municipio']}")
-                        st.write(f"💰 **{g[col_precio]} €/L** | 📍 {g['Distancia']:.2f} km")
-                        st.caption(f"{g['Dirección']}")
+                        
+                        # Mostramos AMBOS precios
+                        p_diesel = f"{g['Precio Gasoleo A']} €" if pd.notnull(g['Precio_Diesel']) else "N/A"
+                        p_g95 = f"{g['Precio Gasolina 95 E5']} €" if pd.notnull(g['Precio_G95']) else "N/A"
+                        
+                        st.write(f"⛽ **Diésel:** {p_diesel} | **G95:** {p_g95}")
+                        st.write(f"📍 {g['Distancia']:.2f} km | {g['Dirección']}")
                     with col_btn:
-                        # URL de navegación directa
                         url_map = f"https://www.google.com/maps?q={g['lat_num']},{g['lon_num']}"
                         st.link_button("Ir", url_map, use_container_width=True)
         else:
-            st.warning("No hay resultados con este combustible en este radio.")
+            st.warning("No hay gasolineras disponibles en este radio.")
 
     # --- BLOQUE 3: CONFIGURACIÓN AL FINAL (PEQUEÑO) ---
     st.write("---")
-    st.caption("Configuración de búsqueda:")
-    st.session_state.tipo_combustible = st.radio(
-        "Ordenar por precio de:", 
+    st.caption("Configuración de ordenación:")
+    st.session_state.tipo_orden = st.radio(
+        "Ordenar la lista por precio de:", 
         ["Diésel", "G95"], 
         horizontal=True,
-        index=0 if st.session_state.tipo_combustible == "Diésel" else 1
+        index=0 if st.session_state.tipo_orden == "Diésel" else 1
     )
 
-    # Pie de página con fecha
+    # Pie de página
     if fecha_act:
         st.caption(f"Última actualización: {fecha_act.strftime('%d/%m/%Y %H:%M:%S')}")
 else:
