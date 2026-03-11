@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 import pandas as pd
 
-# 1. Configuración limpia y estable
+# 1. Configuración limpia
 st.set_page_config(page_title="Precios Combustible", page_icon="⛽", layout="centered")
 
 st.markdown("""
@@ -12,13 +12,18 @@ st.markdown("""
             padding: 1rem !important;
         }
         hr {
-            margin: 1rem 0 !important;
+            margin: 0.8rem 0 !important;
+        }
+        /* Hacemos que la caja de texto destaque un poco sin ser gigante */
+        .stTextInput input {
+            border-radius: 8px !important;
+            border: 1px solid #ccc !important;
         }
     </style>
 """, unsafe_allow_html=True)
 
 # 2. Carga de Datos
-@st.cache_data(ttl=3600, show_spinner="Sincronizando con el Ministerio...")
+@st.cache_data(ttl=3600, show_spinner="Sincronizando...")
 def cargar_datos():
     url = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/"
     try:
@@ -27,7 +32,7 @@ def cargar_datos():
     except:
         return None
 
-# 3. Gestión de Favoritos en la URL con Popups Sutiles
+# 3. Gestión de Favoritos
 def obtener_favoritos():
     if "favs" in st.query_params:
         return st.query_params["favs"].split("|")
@@ -59,82 +64,70 @@ datos = cargar_datos()
 
 if datos:
     favs_ids = obtener_favoritos()
-    municipios_unicos = sorted(list(set([g["Municipio"] for g in datos])))
     
-    # === NUEVO: PREFERENCIAS DE ORDENACIÓN (ARRIBA DEL TODO) ===
-    st.write("### ⚙️ Preferencias")
-    orden = st.radio(
-        "Ordenar mis estaciones guardadas por el mejor precio de:",
-        ["Diésel", "Gasolina 95"],
-        horizontal=True
-    )
-    # Variable que usaremos más abajo para ordenar
-    col_sort = "Precio Gasoleo A" if orden == "Diésel" else "Precio Gasolina 95 E5"
-    st.divider()
+    # === 1. SECCIÓN DE BÚSQUEDA PURA (Letras seguidas exactas) ===
+    busqueda = st.text_input("🔍 Buscar municipio:", placeholder="Escribe aquí (ej. IRU)...").upper()
     
-    # === 1. SECCIÓN DE BÚSQUEDA ===
-    st.subheader("🔍 Buscar gasolineras")
-    
-    municipio_sel = st.selectbox(
-        "Selecciona o escribe el municipio:", 
-        options=municipios_unicos, 
-        index=None, 
-        placeholder="Ej: IRURA"
-    )
-    
-    if municipio_sel:
-        resultados = [g for g in datos if g["Municipio"] == municipio_sel]
+    if len(busqueda) >= 3:
+        # Filtrado estricto: la secuencia de texto debe ser exacta y seguida
+        resultados = [g for g in datos if busqueda in g["Municipio"].upper()]
         
-        with st.container(border=True):
-            st.write(f"Resultados en **{municipio_sel}**:")
+        if resultados:
+            st.caption(f"Resultados exactos para '{busqueda}':")
             for g in resultados:
                 g_id = f"{g['Rótulo']}~{g['Dirección']}"
                 
-                col_info, col_btn = st.columns([3, 1])
-                
-                with col_info:
-                    st.markdown(f"**{g['Rótulo']}**<br><span style='color: gray; font-size: 0.85em;'>{g['Dirección']}</span>", unsafe_allow_html=True)
-                    d_val = f"{g['Precio Gasoleo A']} €" if g['Precio Gasoleo A'] else "--"
-                    g_val = f"{g['Precio Gasolina 95 E5']} €" if g['Precio Gasolina 95 E5'] else "--"
-                    st.markdown(f"<span style='font-size: 0.85em;'><b>D:</b> {d_val} | <b>G:</b> {g_val}</span>", unsafe_allow_html=True)
-                
-                with col_btn:
-                    if g_id in favs_ids:
-                        st.button("✅", key=f"saved-{g_id}", disabled=True, use_container_width=True)
-                    else:
-                        if st.button("⭐ Añadir", key=f"add-{g_id}", type="primary", use_container_width=True):
-                            guardar_favorito(g_id)
-        st.divider()
+                with st.container(border=True):
+                    col_info, col_btn = st.columns([3, 1])
+                    with col_info:
+                        st.markdown(f"**{g['Rótulo']}**<br><span style='color: gray; font-size: 0.85em;'>{g['Dirección']} ({g['Municipio']})</span>", unsafe_allow_html=True)
+                        d_val = f"{g['Precio Gasoleo A']} €" if g['Precio Gasoleo A'] else "--"
+                        g_val = f"{g['Precio Gasolina 95 E5']} €" if g['Precio Gasolina 95 E5'] else "--"
+                        st.markdown(f"<span style='font-size: 0.85em;'><b>D:</b> {d_val} | <b>G:</b> {g_val}</span>", unsafe_allow_html=True)
+                    
+                    with col_btn:
+                        if g_id in favs_ids:
+                            st.button("✅", key=f"saved-{g_id}", disabled=True, use_container_width=True)
+                        else:
+                            if st.button("⭐ Añadir", key=f"add-{g_id}", type="primary", use_container_width=True):
+                                guardar_favorito(g_id)
+        else:
+            st.warning("No se ha encontrado ningún municipio con ese texto exacto.")
+    elif len(busqueda) > 0:
+        st.caption("Escribe al menos 3 letras...")
 
-    # === 2. SECCIÓN DE FAVORITOS ===
+    st.divider()
+
+    # === 2. SECCIÓN DE FAVORITOS (Con selector ultra-compacto) ===
     if favs_ids:
-        st.subheader("⭐ Mis Estaciones Guardadas")
+        # Colocamos el título y el selector de orden en la misma línea
+        c_title, c_sort = st.columns([1.5, 1])
+        with c_title:
+            st.write("### ⭐ Guardadas")
+        with c_sort:
+            # Selector sutil, sin título gigante
+            orden = st.radio("Orden", ["Diésel", "G95"], horizontal=True, label_visibility="collapsed")
+            col_sort = "Precio Gasoleo A" if orden == "Diésel" else "Precio Gasolina 95 E5"
         
         lista_favs = [g for g in datos if f"{g['Rótulo']}~{g['Dirección']}" in favs_ids]
         df_favs = pd.DataFrame(lista_favs)
         
-        # Limpieza de datos
         df_favs["Precio Gasoleo A"] = pd.to_numeric(df_favs["Precio Gasoleo A"].str.replace(",", "."), errors='coerce')
         df_favs["Precio Gasolina 95 E5"] = pd.to_numeric(df_favs["Precio Gasolina 95 E5"].str.replace(",", "."), errors='coerce')
-        
-        # Aplicamos la ordenación elegida en la parte superior
         df_favs = df_favs.sort_values(by=col_sort)
         
         for _, gas in df_favs.iterrows():
             g_id = f"{gas['Rótulo']}~{gas['Dirección']}"
             
             with st.container(border=True):
-                # Información principal
-                st.markdown(f"**{gas['Rótulo']}**<br><span style='color: gray; font-size: 0.9em;'>{gas['Dirección']} ({gas['Municipio']})</span>", unsafe_allow_html=True)
+                st.markdown(f"**{gas['Rótulo']}**<br><span style='color: gray; font-size: 0.9em;'>{gas['Dirección']}</span>", unsafe_allow_html=True)
                 
-                # Precios
                 d_val = f"{gas['Precio Gasoleo A']} €" if pd.notna(gas['Precio Gasoleo A']) else "--"
                 g_val = f"{gas['Precio Gasolina 95 E5']} €" if pd.notna(gas['Precio Gasolina 95 E5']) else "--"
-                st.markdown(f"**Diésel:** {d_val} &nbsp;&nbsp;|&nbsp;&nbsp; **Gasolina 95:** {g_val}")
+                st.markdown(f"**Diésel:** {d_val}   |   **G95:** {g_val}")
                 
-                # Botón único de acción, ocupando el ancho completo de forma natural
                 if st.button("🗑️ Borrar", key=f"del-{g_id}", use_container_width=True):
                     eliminar_favorito(g_id)
                     
 else:
-    st.error("No se ha podido conectar con el Ministerio de Energía en este momento.")
+    st.error("No se ha podido conectar con el Ministerio en este momento.")
