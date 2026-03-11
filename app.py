@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import requests
 import pandas as pd
 
@@ -14,7 +15,6 @@ st.markdown("""
         hr {
             margin: 0.8rem 0 !important;
         }
-        /* Ajustes para que la caja de sugerencias sea elegante */
         div[data-baseweb="select"] > div {
             border-radius: 8px !important;
             border: 1px solid #ccc !important;
@@ -22,7 +22,17 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 2. Carga de Datos
+# 2. Función JS para ocultar teclado en móviles
+def ocultar_teclado():
+    components.html(
+        """<script>
+        var inputs = window.parent.document.querySelectorAll('input');
+        for (var i=0; i<inputs.length; i++) { inputs[i].blur(); }
+        window.parent.document.activeElement.blur();
+        </script>""", height=0, width=0
+    )
+
+# 3. Carga de Datos
 @st.cache_data(ttl=3600, show_spinner="Sincronizando...")
 def cargar_datos():
     url = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/"
@@ -32,7 +42,7 @@ def cargar_datos():
     except:
         return None
 
-# 3. Gestión de Favoritos
+# 4. Gestión de Favoritos
 def obtener_favoritos():
     if "favs" in st.query_params:
         return st.query_params["favs"].split("|")
@@ -75,27 +85,32 @@ if datos:
     )
     
     if municipio_sel:
-        resultados = [g for g in datos if g["Municipio"] == municipio_sel]
+        # Forzamos que el teclado del móvil se esconda al seleccionar
+        ocultar_teclado()
         
-        st.caption(f"Resultados para **{municipio_sel}**:")
-        for g in resultados:
-            g_id = f"{g['Rótulo']}~{g['Dirección']}"
-            
-            with st.container(border=True):
-                col_info, col_btn = st.columns([3, 1])
-                with col_info:
-                    # AQUÍ ESTÁ EL CAMBIO: Rótulo - Municipio en el título principal
-                    st.markdown(f"**{g['Rótulo']} - {g['Municipio']}**<br><span style='color: gray; font-size: 0.85em;'>{g['Dirección']}</span>", unsafe_allow_html=True)
-                    d_val = f"{g['Precio Gasoleo A']} €" if g['Precio Gasoleo A'] else "--"
-                    g_val = f"{g['Precio Gasolina 95 E5']} €" if g['Precio Gasolina 95 E5'] else "--"
-                    st.markdown(f"<span style='font-size: 0.85em;'><b>D:</b> {d_val} | <b>G:</b> {g_val}</span>", unsafe_allow_html=True)
+        # Filtramos los resultados excluyendo los que YA están en favoritos
+        resultados = [g for g in datos if g["Municipio"] == municipio_sel and f"{g['Rótulo']}~{g['Dirección']}" not in favs_ids]
+        
+        if resultados:
+            st.caption(f"Estaciones disponibles para añadir en **{municipio_sel}**:")
+            for g in resultados:
+                g_id = f"{g['Rótulo']}~{g['Dirección']}"
                 
-                with col_btn:
-                    if g_id in favs_ids:
-                        st.button("✅", key=f"saved-{g_id}", disabled=True, use_container_width=True)
-                    else:
+                with st.container(border=True):
+                    col_info, col_btn = st.columns([3, 1])
+                    with col_info:
+                        st.markdown(f"**{g['Rótulo']} - {g['Municipio']}**<br><span style='color: gray; font-size: 0.85em;'>{g['Dirección']}</span>", unsafe_allow_html=True)
+                        d_val = f"{g['Precio Gasoleo A']} €" if g['Precio Gasoleo A'] else "--"
+                        g_val = f"{g['Precio Gasolina 95 E5']} €" if g['Precio Gasolina 95 E5'] else "--"
+                        st.markdown(f"<span style='font-size: 0.85em;'><b>D:</b> {d_val} | <b>G:</b> {g_val}</span>", unsafe_allow_html=True)
+                    
+                    with col_btn:
+                        # Ya no hace falta comprobar si está en favoritos porque los hemos filtrado antes
                         if st.button("⭐ Añadir", key=f"add-{g_id}", type="primary", use_container_width=True):
                             guardar_favorito(g_id)
+        else:
+            # Si el array está vacío, significa que ya has guardado todas las de ese pueblo
+            st.success(f"¡Genial! Todas las gasolineras de {municipio_sel} ya están en tu lista de guardadas. 🎉")
 
     st.divider()
 
@@ -119,7 +134,6 @@ if datos:
             g_id = f"{gas['Rótulo']}~{gas['Dirección']}"
             
             with st.container(border=True):
-                # AQUÍ ESTÁ EL CAMBIO: Rótulo - Municipio en los favoritos también
                 st.markdown(f"**{gas['Rótulo']} - {gas['Municipio']}**<br><span style='color: gray; font-size: 0.9em;'>{gas['Dirección']}</span>", unsafe_allow_html=True)
                 
                 d_val = f"{gas['Precio Gasoleo A']} €" if pd.notna(gas['Precio Gasoleo A']) else "--"
