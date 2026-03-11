@@ -3,9 +3,13 @@ import streamlit.components.v1 as components
 import requests
 import pandas as pd
 import numpy as np
-from streamlit_js_eval import streamlit_js_eval  # Necesitarás instalarlo: pip install streamlit-js-eval
+import urllib3
+from streamlit_js_eval import streamlit_js_eval
 
-# 1. Configuración limpia (Tu V1)
+# Esto evita que salgan mensajes feos en la pantalla por el tema del SSL
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# 1. Configuración Estilo Versión 1
 st.set_page_config(page_title="Precios Combustible", page_icon="⛽", layout="centered")
 
 st.markdown("""
@@ -21,7 +25,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 2. Función JS para ocultar teclado (Tu V1)
+# 2. Función JS Ocultar Teclado (Versión 1)
 def ocultar_teclado():
     components.html(
         """<script>
@@ -31,93 +35,91 @@ def ocultar_teclado():
         </script>""", height=0, width=0
     )
 
-# 3. Carga de Datos (Tu V1 intacta)
+# 3. Carga de Datos (Tu lógica V1 + Parche de Conexión)
 @st.cache_data(ttl=3600, show_spinner="Sincronizando...")
 def cargar_datos():
     url = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/"
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     try:
-        r = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=20)
+        # Usamos una sesión y verify=False para fulminar el error de conexión
+        session = requests.Session()
+        r = session.get(url, headers=headers, timeout=25, verify=False)
         return r.json()["ListaEESSPrecio"]
-    except:
+    except Exception as e:
         return None
 
-# 4. Función Haversine
+# 4. Función de distancia
 def calcular_distancia(lat1, lon1, lat2, lon2):
     R = 6371.0
     dlat, dlon = np.radians(lat2 - lat1), np.radians(lon2 - lon1)
     a = np.sin(dlat / 2)**2 + np.cos(np.radians(lat1)) * np.cos(np.radians(lat2)) * np.sin(dlon / 2)**2
     return R * 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
 
-# --- INICIO DE LA LÓGICA ---
+# --- INICIO APP ---
 st.markdown("<div class='titulo-una-linea'>⛽ Precios Combustible</div>", unsafe_allow_html=True)
 
-# Obtener ubicación GPS (Esto activará el mensaje de permiso del navegador)
+# Pedir ubicación GPS
 loc = streamlit_js_eval(js_expressions="navigator.geolocation.getCurrentPosition(pos => { window.parent.postMessage({type: 'streamlit:set_component_value', value: {lat: pos.coords.latitude, lon: pos.coords.longitude}}, '*') }, err => {}, {enableHighAccuracy: true});", key="gps")
 
 datos = cargar_datos()
 
 if datos:
     df = pd.DataFrame(datos)
-    # Limpieza necesaria
+    # Limpieza de datos necesaria para los cálculos
     df["lat_num"] = pd.to_numeric(df["Latitud"].str.replace(",", "."), errors='coerce')
     df["lon_num"] = pd.to_numeric(df["Longitud (WGS84)"].str.replace(",", "."), errors='coerce')
     
     municipios_unicos = sorted(df["Municipio"].unique())
     index_default = None
 
-    # Si tenemos el GPS, buscamos el municipio más cercano para ponerlo por defecto
+    # Si hay GPS, buscamos el municipio más cercano para preseleccionar
     if loc and 'lat' in loc:
+        # Calculamos distancia rápida para saber el municipio
         df["dist_gps"] = calcular_distancia(loc['lat'], loc['lon'], df["lat_num"], df["lon_num"])
         municipio_detectado = df.sort_values("dist_gps").iloc[0]["Municipio"]
         if municipio_detectado in municipios_unicos:
             index_default = municipios_unicos.index(municipio_detectado)
-            st.toast(f"📍 Ubicación detectada: {municipio_detectado}", icon="🌍")
 
-    # Selector de ubicación
+    # Selector de ubicación y ajustes
     with st.container(border=True):
-        municipio_sel = st.selectbox(
-            "🔍 Municipio (se rellena solo si das permiso GPS):",
-            options=municipios_unicos,
-            index=index_default,
-            placeholder="Elige tu municipio..."
-        )
+        muni_sel = st.selectbox("📍 Municipio:", options=municipios_unicos, index=index_default, placeholder="Cargando ubicación...")
         
-        col_radio, col_tipo = st.columns(2)
-        with col_radio:
-            radio_km = st.slider("Radio de búsqueda (Km):", 1, 50, 10)
-        with col_tipo:
-            orden = st.radio("Precio más barato de:", ["Diésel", "G95"], horizontal=True)
-            col_precio = "Precio Gasoleo A" if orden == "Diésel" else "Precio Gasolina 95 E5"
+        c1, c2 = st.columns(2)
+        with c1:
+            radio = st.slider("Radio (Km):", 1, 50, 10)
+        with c2:
+            tipo = st.radio("Precio de:", ["Diésel", "G95"], horizontal=True)
+            col_precio = "Precio Gasoleo A" if tipo == "Diésel" else "Precio Gasolina 95 E5"
 
-    if municipio_sel:
+    if muni_sel:
         ocultar_teclado()
         
-        # Coordenadas de referencia (municipio elegido)
-        ref = df[df["Municipio"] == municipio_sel].iloc[0]
-        # Si tenemos el GPS exacto y el municipio coincide, usamos el GPS para más precisión
-        lat_ref = loc['lat'] if (loc and 'lat' in loc and municipio_sel == municipio_detectado) else ref["lat_num"]
-        lon_ref = loc['lon'] if (loc and 'lon' in loc and municipio_sel == municipio_detectado) else ref["lon_num"]
+        # Punto de referencia: Coordenadas del municipio (o GPS si coincide)
+        ref = df[df["Municipio"] == muni_sel].iloc[0]
+        lat_ref = loc['lat'] if (loc and 'lat' in loc and muni_sel == ref["Municipio"]) else ref["lat_num"]
+        lon_ref = loc['lon'] if (loc and 'lon' in loc and muni_sel == ref["Municipio"]) else ref["lon_num"]
         
+        # Calcular distancias reales
         df["Distancia"] = calcular_distancia(lat_ref, lon_ref, df["lat_num"], df["lon_num"])
-        df["precio_num"] = pd.to_numeric(df[col_precio].str.replace(",", "."), errors='coerce')
+        df["p_num"] = pd.to_numeric(df[col_precio].str.replace(",", "."), errors='coerce')
         
-        resultados = df[(df["Distancia"] <= radio_km) & (df["precio_num"].notna())].sort_values(by="precio_num")
+        # Filtrar y ordenar
+        res = df[(df["Distancia"] <= radio) & (df["p_num"].notna())].sort_values(by="p_num")
 
         st.divider()
-        st.write(f"### 📉 {orden} más barato a {radio_km}km")
+        st.write(f"### 📉 {tipo} más barato a {radio}km")
         
-        if not resultados.empty:
-            for _, g in resultados.head(15).iterrows():
-                with st.container(border=True):
-                    col_info, col_btn = st.columns([3, 1])
-                    with col_info:
-                        st.markdown(f"**{g['Rótulo']}**")
-                        st.caption(f"{g['Dirección']} ({g['Municipio']})")
-                        st.write(f"💰 **{g[col_precio]} €** |  📍 {g['Distancia']:.1f} km")
-                    with col_btn:
-                        map_url = f"https://www.google.com/maps/search/?api=1&query={g['lat_num']},{g['lon_num']}"
-                        st.link_button("Ir", map_url, use_container_width=True)
-        else:
-            st.warning("No hay gasolineras en este radio.")
+        for _, g in res.head(15).iterrows():
+            with st.container(border=True):
+                col_txt, col_btn = st.columns([3, 1])
+                with col_txt:
+                    st.markdown(f"**{g['Rótulo']}**")
+                    st.caption(f"{g['Dirección']} ({g['Municipio']})")
+                    st.write(f"💰 **{g[col_precio]} €** | 📍 {g['Distancia']:.1f} km")
+                with col_btn:
+                    map_url = f"https://www.google.com/maps?q={g['lat_num']},{g['lon_num']}"
+                    st.link_button("Ir", map_url, use_container_width=True)
 else:
-    st.error("No se ha podido conectar con el Ministerio.")
+    st.error("No se ha podido conectar con el Ministerio. Reintentando...")
+    if st.button("🔄 Forzar Reintento"):
+        st.rerun()
