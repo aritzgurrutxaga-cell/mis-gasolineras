@@ -148,8 +148,8 @@ if datos:
                         st.write(f"⛽ **D:** {p_diesel} | **G95:** {p_g95}")
                         st.caption(f"📍 {g['Distancia']:.2f} km | {g['Dirección']}")
                     with col_btn:
-                        # --- CAMBIO REALIZADO AQUÍ: URL DE GOOGLE MAPS ---
-                        url_map = f"https://www.google.com/maps?q={g['lat_num']},{g['lon_num']}"
+                        # --- CAMBIO REALIZADO AQUÍ: URL OFICIAL DE GOOGLE MAPS ---
+                        url_map = f"https://www.google.com/maps/search/?api=1&query={g['lat_num']},{g['lon_num']}"
                         st.link_button("📍 Navegar", url_map, use_container_width=True)
         else:
             st.warning("No hay resultados en este radio.")
