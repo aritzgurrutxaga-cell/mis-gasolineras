@@ -20,7 +20,7 @@ class SSLAdapter(HTTPAdapter):
 # 1. Configuración de la página
 st.set_page_config(page_title="Buscador Gasolineras", page_icon="⛽", layout="centered")
 
-# Título adaptable en una sola línea (HTML inline para evitar bloque CSS separado)
+# Título adaptable en una sola línea
 st.markdown(
     """
     <h1 style='text-align: center; font-size: clamp(24px, 7vw, 40px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>
@@ -66,7 +66,6 @@ if datos:
     df["lat_num"] = pd.to_numeric(df["Latitud"].str.replace(",", "."), errors='coerce')
     df["lon_num"] = pd.to_numeric(df["Longitud (WGS84)"].str.replace(",", "."), errors='coerce')
     
-    # Pre-limpieza de ambos precios
     df["Precio_Diesel"] = pd.to_numeric(df["Precio Gasoleo A"].str.replace(",", "."), errors='coerce')
     df["Precio_G95"] = pd.to_numeric(df["Precio Gasolina 95 E5"].str.replace(",", "."), errors='coerce')
     
@@ -89,12 +88,10 @@ if datos:
         
         if lat_gps and (municipio_manual == muni_gps or municipio_manual is None):
             lat_ref, lon_ref = lat_gps, lon_gps
-            origen_label = "tu ubicación exacta"
             st.success("✅ GPS: Usando tu ubicación actual")
         elif municipio_manual:
             ref = df[df["Municipio"] == municipio_manual].iloc[0]
             lat_ref, lon_ref = ref["lat_num"], ref["lon_num"]
-            origen_label = municipio_manual
         else:
             lat_ref, lon_ref = None, None
             st.info("⌛ Esperando señal GPS o selecciona municipio...")
@@ -114,15 +111,14 @@ if datos:
         res = df[(df["Distancia"] <= radio_km) & (df[col_orden].notna())].sort_values(col_orden)
 
         st.divider()
-        st.subheader(f"📉 Baratas cerca de {origen_label}")
-        st.caption(f"Ordenado por: {st.session_state.tipo_orden}")
+        # Cambio solicitado: Texto de ordenación actualizado y eliminación del subheader de ubicación
+        st.caption(f"Resultados ordenados por precio de: {st.session_state.tipo_orden}")
         
         if not res.empty:
             for _, g in res.head(15).iterrows():
                 with st.container(border=True):
                     col_info, col_btn = st.columns([3, 1])
                     with col_info:
-                        # Nombre - Municipio
                         st.write(f"### {g['Rótulo']} - {g['Municipio']}")
                         
                         p_diesel = f"{g['Precio Gasoleo A']} €" if pd.notnull(g['Precio_Diesel']) else "N/A"
@@ -136,7 +132,7 @@ if datos:
         else:
             st.warning("No hay resultados en este radio.")
 
-    # --- BLOQUE 3: SELECTOR AL FINAL (PEQUEÑO) ---
+    # --- BLOQUE 3: CONFIGURACIÓN AL FINAL (PEQUEÑO) ---
     st.write("---")
     st.caption("Configuración de ordenación:")
     st.session_state.tipo_orden = st.radio(
