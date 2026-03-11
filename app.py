@@ -20,27 +20,36 @@ class SSLAdapter(HTTPAdapter):
 # 1. Configuración de la página
 st.set_page_config(page_title="Buscador Gasolineras", page_icon="⛽", layout="centered")
 
-# Ajustes de espaciado (Reducción de márgenes superior e intermedio)
+# AJUSTES DE ESPACIADO PRECISOS
 st.markdown("""
     <style>
-        .block-container {padding-top: 1rem; padding-bottom: 0rem;}
-        h1 {margin-top: -2rem; margin-bottom: 0rem; padding-bottom: 0.5rem;}
-        .stSlider {margin-top: -1.5rem;}
-        .stDivider {margin-top: 0rem; margin-bottom: 0rem;}
+        /* Baja el título de la parte superior */
+        .block-container {padding-top: 4.5rem;}
+        
+        /* Espacio extra entre el bloque de ubicación y el radio de búsqueda */
+        div[data-testid="stVerticalBlock"] > div:has(div[data-testid="stSlider"]) {
+            margin-top: 2rem;
+        }
+
+        /* Reduce el espacio debajo del slider para acercar los resultados */
+        div[data-testid="stSlider"] {margin-bottom: -2.5rem;}
+        
+        /* Ajuste de márgenes del título */
+        h1 {margin-bottom: 1.5rem;}
     </style>
 """, unsafe_allow_html=True)
 
 # Título adaptable en una sola línea
 st.markdown(
     """
-    <h1 style='text-align: center; font-size: clamp(24px, 7vw, 40px); white-space: nowrap; overflow: hidden;'>
+    <h1 style='text-align: center; font-size: clamp(24px, 7vw, 38px); white-space: nowrap; overflow: hidden;'>
         ⛽ Buscador Gasolineras
     </h1>
     """, 
     unsafe_allow_html=True
 )
 
-# 2. Carga de Datos con Backup
+# 2. Carga de Datos
 @st.cache_data(ttl=3600)
 def cargar_datos():
     url = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/"
@@ -96,10 +105,12 @@ if datos:
         
         if lat_gps and (municipio_manual == muni_gps or municipio_manual is None):
             lat_ref, lon_ref = lat_gps, lon_gps
+            origen_label = "tu ubicación exacta"
             st.success("✅ GPS Activo")
         elif municipio_manual:
             ref = df[df["Municipio"] == municipio_manual].iloc[0]
             lat_ref, lon_ref = ref["lat_num"], ref["lon_num"]
+            origen_label = municipio_manual
         else:
             lat_ref, lon_ref = None, None
             st.info("⌛ Esperando ubicación...")
@@ -130,7 +141,7 @@ if datos:
                         st.write(f"⛽ **Diésel:** {p_diesel} | **G95:** {p_g95}")
                         st.write(f"📍 {g['Distancia']:.2f} km | {g['Dirección']}")
                     with col_btn:
-                        url_map = f"https://www.google.com/maps?q={g['lat_num']},{g['lon_num']}"
+                        url_map = f"https://www.google.com/maps/dir/?api=1&destination={g['lat_num']},{g['lon_num']}"
                         st.link_button("Ir", url_map, use_container_width=True)
         else:
             st.warning("No hay resultados en este radio.")
