@@ -7,13 +7,13 @@ import urllib3
 import json
 import os
 
-# 1. Silenciamos errores de seguridad para que no ensucien la app
+# 1. Silenciamos los avisos de seguridad SSL para evitar ruidos
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 st.set_page_config(page_title="Precios Combustible", page_icon="⛽", layout="centered")
 
-# Nombre del archivo donde guardaremos los datos para cuando el Ministerio falle
-BACKUP_FILE = "datos_combustible_v1.json"
+# Archivo de respaldo local
+BACKUP_FILE = "datos_gasolineras_v1.json"
 
 st.markdown("""
     <style>
@@ -32,32 +32,36 @@ st.markdown("""
 def ocultar_teclado():
     components.html("<script>window.parent.document.activeElement.blur();</script>", height=0, width=0)
 
-# 3. Carga de Datos con "Blindaje" y Backup
-@st.cache_data(ttl=3600, show_spinner="Sincronizando...")
+# 3. Función de Carga con "Fuerza Bruta"
+@st.cache_data(ttl=3600, show_spinner="Intentando conectar con el Ministerio...")
 def cargar_datos():
-    url = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/"
+    # Probamos con la URL que mejor suele responder a servidores
+    url = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres"
     
-    # Engañamos al servidor para que crea que somos un navegador Chrome real
+    # Headers extremadamente realistas
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'es-ES,es;q=0.9',
+        'Referer': 'https://geoportal.minetur.gob.es/',
         'Connection': 'keep-alive'
     }
     
     try:
-        # Intentamos la conexión real
-        r = requests.get(url, headers=headers, timeout=25, verify=False)
+        # Intentamos la conexión ignorando errores de certificado (verify=False)
+        session = requests.Session()
+        r = session.get(url, headers=headers, timeout=30, verify=False)
         r.raise_for_status()
         datos = r.json()["ListaEESSPrecio"]
         
-        # Si funciona, guardamos una copia de seguridad local
+        # Si logramos conectar una sola vez, guardamos el Backup
         with open(BACKUP_FILE, 'w') as f:
             json.dump(datos, f)
         
         return datos, False
         
     except Exception as e:
-        # Si falla (porque el Ministerio bloquea la IP de Streamlit), cargamos el backup
+        # Si falla (Bloqueo de IP), buscamos el backup
         if os.path.exists(BACKUP_FILE):
             with open(BACKUP_FILE, 'r') as f:
                 return json.load(f), True
@@ -69,33 +73,33 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
     a = np.sin(dlat / 2)**2 + np.cos(np.radians(lat1)) * np.cos(np.radians(lat2)) * np.sin(dlon / 2)**2
     return R * 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
 
-# --- INTERFAZ ---
+# --- LÓGICA DE LA INTERFAZ ---
 st.markdown("<div class='titulo-una-linea'>⛽ Precios Combustible</div>", unsafe_allow_html=True)
 
 datos, es_backup = cargar_datos()
 
 if datos:
     if es_backup:
-        st.info("⚠️ Usando datos guardados (el Ministerio está rechazando la conexión ahora mismo).")
-
+        st.warning("⚠️ El Ministerio está bloqueando la conexión. Mostrando últimos datos guardados.")
+    
     df = pd.DataFrame(datos)
+    # Limpieza de datos
+    df["lat_num"] = pd.to_numeric(df["Latitud"].str.replace(",", "."), errors='coerce')
+    df["lon_num"] = pd.to_numeric(df["Longitud (WGS84)"].str.replace(",", "."), errors='coerce')
+    
     municipios_unicos = sorted(list(set([g["Municipio"] for g in datos])))
     
     with st.container(border=True):
-        municipio_sel = st.selectbox("🔍 Municipio:", options=municipios_unicos, index=None, placeholder="Elige tu ubicación...")
+        municipio_sel = st.selectbox("🔍 Municipio base:", options=municipios_unicos, index=None, placeholder="Elige tu ubicación...")
         c1, c2 = st.columns(2)
         with c1:
             radio_km = st.slider("Radio (Km):", 1, 50, 10)
         with c2:
-            orden = st.radio("Precio de:", ["Diésel", "G95"], horizontal=True)
+            orden = st.radio("Mejor precio de:", ["Diésel", "G95"], horizontal=True)
             col_precio = "Precio Gasoleo A" if orden == "Diésel" else "Precio Gasolina 95 E5"
 
     if municipio_sel:
         ocultar_teclado()
-        
-        df["lat_num"] = pd.to_numeric(df["Latitud"].str.replace(",", "."), errors='coerce')
-        df["lon_num"] = pd.to_numeric(df["Longitud (WGS84)"].str.replace(",", "."), errors='coerce')
-        
         ref = df[df["Municipio"] == municipio_sel].iloc[0]
         df["Distancia"] = calcular_distancia(ref["lat_num"], ref["lon_num"], df["lat_num"], df["lon_num"])
         df["precio_num"] = pd.to_numeric(df[col_precio].str.replace(",", "."), errors='coerce')
@@ -112,7 +116,13 @@ if datos:
                         st.caption(f"{g['Dirección']} ({g['Municipio']})")
                         st.write(f"💰 **{g[col_precio]} €** | 📍 {g['Distancia']:.1f} km")
                     with col_btn:
-                        map_url = f"https://www.google.com/maps/search/?api=1&query={g['lat_num']},{g['lon_num']}"
+                        map_url = f"https://www.google.com/maps?q={g['lat_num']},{g['lon_num']}"
                         st.link_button("Ir", map_url, use_container_width=True)
+        else:
+            st.info("No hay gasolineras en ese radio.")
 else:
-    st.error("Error total: Ni el Ministerio responde ni hay datos de backup todavía.")
+    st.error("❌ El servidor del Ministerio no responde a la aplicación.")
+    st.info("💡 Consejo: Abre la web del Ministerio una vez en este dispositivo y luego refresca la app.")
+    if st.button("🔄 Intentar reconectar"):
+        st.cache_data.clear()
+        st.rerun()
