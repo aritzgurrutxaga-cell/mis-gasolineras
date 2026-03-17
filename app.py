@@ -33,6 +33,19 @@ st.markdown("""
         header {visibility: hidden !important;}
         #MainMenu {visibility: hidden !important;}
         
+        /* --- ELIMINAR HUECOS FANTASMAS DE JAVASCRIPT --- */
+        /* Streamlit crea cajas invisibles para ejecutar JS, esto las aplasta a 0px */
+        iframe {
+            display: none !important;
+            height: 0px !important;
+        }
+        .element-container:has(iframe) {
+            display: none !important;
+            height: 0px !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        
         div[data-testid="stRadio"] > label {font-weight: bold; margin-bottom: -0.5rem;}
         div[data-testid="stRadio"] {margin-bottom: 0.5rem;}
         hr {margin-top: 0.5rem; margin-bottom: 1rem;}
@@ -83,18 +96,18 @@ if 'municipio_guardado' not in st.session_state:
 if 'gps_fallido' not in st.session_state:
     st.session_state.gps_fallido = False
 
-# Recuperamos la caché persistente del navegador
+# Recuperamos la caché persistente del navegador (Esto creaba un hueco fantasma)
 muni_cache = streamlit_js_eval(js_expressions="parent.window.localStorage.getItem('muni_gasolineras')", key="get_muni_cache")
 if muni_cache and muni_cache != "null" and not st.session_state.municipio_guardado:
     st.session_state.municipio_guardado = muni_cache
 
-# Lógica oculta para guardar en la caché permanente
+# Lógica oculta para guardar en la caché permanente (Esto creaba otro hueco)
 if 'guardar_js' in st.session_state and st.session_state.guardar_js:
     js_code = f"parent.window.localStorage.setItem('muni_gasolineras', '{st.session_state.guardar_js}')"
     streamlit_js_eval(js_expressions=js_code, key=f"set_{st.session_state.guardar_js}")
     st.session_state.guardar_js = None
 
-# Consultar estado de los permisos de ubicación
+# Consultar estado de los permisos de ubicación (Y otro hueco más)
 js_permiso = "navigator.permissions ? navigator.permissions.query({name: 'geolocation'}).then(res => res.state) : 'prompt'"
 estado_permiso = streamlit_js_eval(js_expressions=js_permiso, key="permiso_gps")
 
@@ -104,7 +117,7 @@ gps_denegado = (estado_permiso == "denied") or st.session_state.gps_fallido
 # ESTADO 1: PANTALLA INICIAL PURA
 # ==========================================
 if not st.session_state.solicitar_gps and not st.session_state.municipio_guardado:
-    st.markdown("<h3 style='text-align: center; color: #555; font-size: 1.1rem; margin-top: 2rem; margin-bottom: 1rem;'>Descubre al instante dónde repostar más barato</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center; color: #555; font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 1rem;'>Descubre al instante dónde repostar más barato</h3>", unsafe_allow_html=True)
     if st.button("📍 Mostrar gasolineras", use_container_width=True, type="primary"):
         st.session_state.solicitar_gps = True
         st.rerun()
@@ -185,7 +198,6 @@ if gps_denegado and not st.session_state.municipio_guardado:
         </div>
     """, unsafe_allow_html=True)
     
-    # El selectbox nativo filtra automáticamente al escribir
     municipio_seleccionado_inicio = st.selectbox(
         "Municipio:", 
         options=municipios_unicos,
@@ -239,7 +251,6 @@ with st.expander("⚙️ Ajustes de búsqueda", expanded=False):
 
     st.write("") 
     
-    # Botón para vaciar el Local Storage y volver al inicio
     if st.button("🗑️ Borrar ubicación y reiniciar", type="secondary", use_container_width=True):
         st.session_state.municipio_guardado = None
         st.session_state.solicitar_gps = False
