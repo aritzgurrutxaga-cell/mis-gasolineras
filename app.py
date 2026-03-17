@@ -67,37 +67,46 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- INICIALIZACIÓN DE MEMORIA CACHÉ DE LA SESIÓN ---
+# --- INICIALIZACIÓN DE MEMORIA CACHÉ ---
 if 'solicitar_gps' not in st.session_state:
     st.session_state.solicitar_gps = False
 if 'municipio_guardado' not in st.session_state:
     st.session_state.municipio_guardado = None
 
-# Consultar estado silencioso de los permisos en el navegador
+# Consultar estado de los permisos en el navegador
 js_permiso = "navigator.permissions ? navigator.permissions.query({name: 'geolocation'}).then(res => res.state) : 'prompt'"
 estado_permiso = streamlit_js_eval(js_expressions=js_permiso, key="permiso_gps")
-
-loc = None
-lat_gps, lon_gps, muni_gps = None, None, None
 gps_denegado = (estado_permiso == "denied")
 
-# LÓGICA DE UBICACIÓN INSTANTÁNEA
-if estado_permiso == "granted" or (st.session_state.solicitar_gps and not gps_denegado):
-    loc = get_geolocation()
-    
-    if not loc or 'coords' not in loc:
-        st.info("⏳ Cargando gasolineras...")
-    else:
-        lat_gps = loc['coords']['latitude']
-        lon_gps = loc['coords']['longitude']
-elif not gps_denegado:
-    # Botón principal limpio, sin advertencias de permisos adicionales
+# --- PANTALLA INICIAL PURA (Solo el botón rojo) ---
+if not st.session_state.solicitar_gps:
+    st.write("") # Espaciador
     if st.button("📍 Mostrar gasolineras", use_container_width=True, type="primary"):
         st.session_state.solicitar_gps = True
         st.rerun()
+    # Detenemos la ejecución aquí para que la primera vez sea super rápida y limpia
+    st.stop()
 
-# 2. Carga de Datos
-@st.cache_data(ttl=3600, show_spinner="Actualizando precios...")
+
+# ==========================================
+# A PARTIR DE AQUÍ: EL USUARIO YA HA PULSADO EL BOTÓN
+# ==========================================
+
+loc = None
+lat_gps, lon_gps = None, None
+
+# Solo activamos la petición GPS si NO está denegado y NO hay un municipio guardado a mano
+if not gps_denegado and not st.session_state.municipio_guardado:
+    loc = get_geolocation()
+    if not loc or 'coords' not in loc:
+        st.info("⏳ Localizando...")
+        st.stop() # Esperamos a tener coordenadas antes de cargar toda la base de datos
+    else:
+        lat_gps = loc['coords']['latitude']
+        lon_gps = loc['coords']['longitude']
+
+# 2. Carga de Datos (Solo ocurre después de pulsar el botón)
+@st.cache_data(ttl=3600, show_spinner="Descargando precios oficiales...")
 def cargar_datos():
     url = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/"
     headers = {'User-Agent': 'Mozilla/5.0'}
@@ -137,55 +146,61 @@ if datos:
     
     municipios_unicos = sorted(list(set([str(g["Municipio"]) for g in datos])))
 
-    if lat_gps and lon_gps:
+    # Determinar qué coordenadas usamos como referencia (Manual vs GPS)
+    lat_ref, lon_ref, muni_ref = None, None, None
+
+    if st.session_state.municipio_guardado:
+        # Prioridad 1: Si eligió un municipio manual, mandan esas coordenadas
+        muni_ref = st.session_state.municipio_guardado
+        fila_muni = df[df["Municipio"] == muni_ref].iloc[0]
+        lat_ref, lon_ref = fila_muni["lat_num"], fila_muni["lon_num"]
+    elif lat_gps and lon_gps:
+        # Prioridad 2: GPS
         df["dist_temp"] = calcular_distancia(lat_gps, lon_gps, df["lat_num"], df["lon_num"])
-        muni_gps = df.sort_values("dist_temp").iloc[0]["Municipio"]
+        muni_ref = df.sort_values("dist_temp").iloc[0]["Municipio"]
+        lat_ref, lon_ref = lat_gps, lon_gps
 
-    # --- LÓGICA DE INTERFAZ: BÚSQUEDA MANUAL ---
-    if gps_denegado:
-        st.markdown("<div style='text-align: center; color: #777; font-size: 0.85rem; margin-bottom: 10px;'>ℹ️ Has desactivado la ubicación automática. Puedes reactivarla en la configuración de tu navegador.</div>", unsafe_allow_html=True)
-
+    # --- LÓGICA DE INTERFAZ: BÚSQUEDA MANUAL EN DOS PASOS ---
+    
+    # Se expande automáticamente SOLO si denegaron el GPS y aún no han guardado nada en caché
     abrir_busqueda = True if (gps_denegado and not st.session_state.municipio_guardado) else False
 
     with st.expander("🔍 Búsqueda manual", expanded=abrir_busqueda):
         
-        # --- NUEVO SISTEMA DE BÚSQUEDA POR TEXTO ---
-        valor_texto_inicial = st.session_state.municipio_guardado if st.session_state.municipio_guardado else ""
+        # Bloque 1: Input de texto y sugerencias
+        st.write("Selecciona tu municipio de referencia:")
         texto_busqueda = st.text_input(
             "📍 Escribe tu municipio:", 
-            value=valor_texto_inicial,
             placeholder="Ej: Madrid, Bilbao, Valencia..."
         )
 
-        municipio_manual = None
-
+        municipio_seleccionado = None
+        
         if texto_busqueda:
-            # Filtramos los municipios ignorando mayúsculas y tildes básicas para mejorar la búsqueda
+            # Filtramos ignorando mayúsculas/minúsculas
             opciones_filtradas = [m for m in municipios_unicos if texto_busqueda.lower() in m.lower()]
             
             if len(opciones_filtradas) == 1:
-                # Si solo hay una coincidencia exacta, lo selecciona directamente
-                municipio_manual = opciones_filtradas[0]
-                st.session_state.municipio_guardado = municipio_manual
+                municipio_seleccionado = opciones_filtradas[0]
+                st.success(f"Sugerencia encontrada: {municipio_seleccionado}")
             elif len(opciones_filtradas) > 1:
-                # Si hay varias coincidencias, mostramos las sugerencias
-                idx_sugerencia = opciones_filtradas.index(st.session_state.municipio_guardado) if st.session_state.municipio_guardado in opciones_filtradas else 0
-                municipio_manual = st.selectbox("Sugerencias:", options=opciones_filtradas, index=idx_sugerencia)
-                st.session_state.municipio_guardado = municipio_manual
+                # Si hay varias opciones, mostramos un selector desplegable
+                municipio_seleccionado = st.selectbox("Elige una opción:", options=opciones_filtradas)
             else:
                 st.warning("No se ha encontrado ningún municipio con ese nombre.")
-        
-        # Procesamiento de coordenadas basado en la elección final
-        if lat_gps and (municipio_manual == muni_gps or municipio_manual is None):
-            lat_ref, lon_ref = lat_gps, lon_gps
-        elif municipio_manual:
-            ref = df[df["Municipio"] == municipio_manual].iloc[0]
-            lat_ref, lon_ref = ref["lat_num"], ref["lon_num"]
-        else:
-            lat_ref, lon_ref = None, None
 
+        # Bloque 2: El Botón de Aceptar (Clave para que no recargue solo)
+        if st.button("✅ Aceptar", type="secondary"):
+            if municipio_seleccionado:
+                st.session_state.municipio_guardado = municipio_seleccionado
+                st.rerun() # Aplicamos el cambio y refrescamos los resultados
+            else:
+                st.error("Por favor, escribe y selecciona un municipio válido primero.")
+                
+        st.divider()
+
+        # Bloque 3: Filtros de configuración
         col_km, col_gas = st.columns(2)
-        
         with col_km:
             radio_km = st.radio(
                 "Radio de búsqueda:",
@@ -194,7 +209,6 @@ if datos:
                 index=0, 
                 horizontal=True
             )
-            
         with col_gas:
             tipo_combustible = st.radio(
                 "Ordenar por precio de:", 
@@ -213,16 +227,15 @@ if datos:
         ].sort_values(col_orden, na_position='last')
 
         # BARRA DE RESUMEN VISUAL
-        muni_mostrar = municipio_manual if municipio_manual else muni_gps
-        if muni_mostrar: 
-            st.markdown(f"<div class='resumen-filtros'>📍 <b>{muni_mostrar}</b>  |  🚗 <b>{radio_km} km</b>  |  ⛽ <b>{tipo_combustible}</b></div>", unsafe_allow_html=True)
+        if muni_ref:
+            st.markdown(f"<div class='resumen-filtros'>📍 <b>{muni_ref}</b>  |  🚗 <b>{radio_km} km</b>  |  ⛽ <b>{tipo_combustible}</b></div>", unsafe_allow_html=True)
         
         if not res.empty:
             for _, g in res.head(20).iterrows():
                 with st.container(border=True):
                     col_info, col_btn = st.columns([2.4, 1.6], vertical_alignment="center")
                     with col_info:
-                        st.write(f"### {g['Rótulo']} - {g['Municipio']}")
+                        st.write(f"### {g['Rótulo']}") # Ya mostramos el municipio en el resumen arriba
                         p_diesel = f"{g['Precio Gasoleo A']} €" if pd.notnull(g['Precio_Diesel']) else "N/A"
                         p_g95 = f"{g['Precio Gasolina 95 E5']} €" if pd.notnull(g['Precio_G95']) else "N/A"
                         st.write(f"⛽ **D:** {p_diesel} | **G95:** {p_g95}")
@@ -231,7 +244,7 @@ if datos:
                         url_map = f"https://www.google.com/maps/dir/?api=1&destination={g['lat_num']},{g['lon_num']}"
                         st.link_button("🗺️ Ir allí", url_map, use_container_width=True)
         else:
-            st.warning(f"No hay resultados en un radio de {radio_km} km. Prueba a ampliar el radio en la Búsqueda manual.")
+            st.warning(f"No hay resultados a {radio_km} km. Prueba a ampliar el radio en la Búsqueda manual.")
 else:
     st.error("Sin conexión a los datos oficiales.")
 
