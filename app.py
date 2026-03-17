@@ -67,24 +67,33 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- INICIALIZACIÓN DE MEMORIA CACHÉ ---
+# --- INICIALIZACIÓN DE MEMORIA Y LOCAL STORAGE (MEMORIA PERMANENTE) ---
 if 'solicitar_gps' not in st.session_state:
     st.session_state.solicitar_gps = False
 if 'municipio_guardado' not in st.session_state:
     st.session_state.municipio_guardado = None
-if 'gps_fallido' not in st.session_state:
-    st.session_state.gps_fallido = False
 
-# Consultar estado de los permisos en el navegador
+# 1. Recuperamos la caché persistente del navegador de forma silenciosa
+muni_cache = streamlit_js_eval(js_expressions="parent.window.localStorage.getItem('muni_gasolineras')", key="get_muni_cache")
+if muni_cache and muni_cache != "null" and not st.session_state.municipio_guardado:
+    st.session_state.municipio_guardado = muni_cache
+
+# 2. Lógica oculta para guardar en la caché permanente cuando sea necesario
+if 'guardar_js' in st.session_state and st.session_state.guardar_js:
+    js_code = f"parent.window.localStorage.setItem('muni_gasolineras', '{st.session_state.guardar_js}')"
+    streamlit_js_eval(js_expressions=js_code, key=f"set_{st.session_state.guardar_js}")
+    st.session_state.guardar_js = None
+
+
+# Consultar estado de los permisos de ubicación
 js_permiso = "navigator.permissions ? navigator.permissions.query({name: 'geolocation'}).then(res => res.state) : 'prompt'"
 estado_permiso = streamlit_js_eval(js_expressions=js_permiso, key="permiso_gps")
 
-# El GPS está denegado si el navegador lo dice explícitamente o si nuestro componente falló al intentarlo
-gps_denegado = (estado_permiso == "denied") or st.session_state.gps_fallido
+gps_denegado = (estado_permiso == "denied")
 
 # --- PANTALLA INICIAL PURA (Solo el botón rojo) ---
 if not st.session_state.solicitar_gps:
-    st.write("") # Espaciador
+    st.write("") # Espaciador visual
     if st.button("📍 Mostrar gasolineras", use_container_width=True, type="primary"):
         st.session_state.solicitar_gps = True
         st.rerun()
@@ -92,31 +101,26 @@ if not st.session_state.solicitar_gps:
 
 
 # ==========================================
-# A PARTIR DE AQUÍ: EL USUARIO YA HA PULSADO EL BOTÓN
+# EL USUARIO YA HA PULSADO EL BOTÓN
 # ==========================================
 
 loc = None
 lat_gps, lon_gps = None, None
 
-# Solo activamos la petición GPS si NO está denegado y NO hay un municipio guardado a mano
+# Si NO han bloqueado el GPS y NO tienen un municipio permanente en caché, activamos el GPS
 if not gps_denegado and not st.session_state.municipio_guardado:
     loc = get_geolocation()
-    
     if loc is None:
-        # 'None' significa que el navegador aún está preguntando al usuario
         st.info("⏳ Localizando...")
         st.stop() 
     elif 'coords' not in loc:
-        # Si devuelve algo pero no hay coordenadas, es que el usuario le dio a "Cancelar"
-        st.session_state.gps_fallido = True
         gps_denegado = True
-        # Aquí NO ponemos st.stop() para que el código continúe y abra la búsqueda manual
     else:
-        # Éxito: tenemos coordenadas
         lat_gps = loc['coords']['latitude']
         lon_gps = loc['coords']['longitude']
 
-# 2. Carga de Datos (Ocurre si hay GPS, si hay municipio en caché, o si el GPS falló y vamos al manual)
+
+# 2. Carga de Datos
 @st.cache_data(ttl=3600, show_spinner="Descargando precios oficiales...")
 def cargar_datos():
     url = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/"
@@ -157,32 +161,27 @@ if datos:
     
     municipios_unicos = sorted(list(set([str(g["Municipio"]) for g in datos])))
 
-    # Determinar qué coordenadas usamos como referencia (Manual vs GPS)
     lat_ref, lon_ref, muni_ref = None, None, None
 
     if st.session_state.municipio_guardado:
-        # Prioridad 1: Si eligió un municipio manual en caché, mandan esas coordenadas
+        # Prioridad absoluta: El municipio recuperado de la caché permanente
         muni_ref = st.session_state.municipio_guardado
         fila_muni = df[df["Municipio"] == muni_ref].iloc[0]
         lat_ref, lon_ref = fila_muni["lat_num"], fila_muni["lon_num"]
     elif lat_gps and lon_gps:
-        # Prioridad 2: GPS
+        # Si no hay caché, usamos el GPS
         df["dist_temp"] = calcular_distancia(lat_gps, lon_gps, df["lat_num"], df["lon_num"])
         muni_ref = df.sort_values("dist_temp").iloc[0]["Municipio"]
         lat_ref, lon_ref = lat_gps, lon_gps
 
-    # --- LÓGICA DE INTERFAZ: BÚSQUEDA MANUAL EN DOS PASOS ---
-    
-    # Se expande automáticamente SOLO si denegaron el GPS y aún no han guardado nada en caché
+    # --- LÓGICA DE INTERFAZ: BÚSQUEDA MANUAL ---
     abrir_busqueda = True if (gps_denegado and not st.session_state.municipio_guardado) else False
 
     with st.expander("🔍 Búsqueda manual", expanded=abrir_busqueda):
         
-        # Opcional: Pequeño aviso de que pasamos a modo manual si falló el GPS recién
         if gps_denegado and not st.session_state.municipio_guardado:
             st.warning("No hemos podido acceder a tu ubicación. Por favor, selecciona tu municipio a mano.")
 
-        # Bloque 1: Input de texto y sugerencias
         texto_busqueda = st.text_input(
             "📍 Escribe tu municipio:", 
             placeholder="Ej: Madrid, Bilbao, Valencia..."
@@ -191,29 +190,28 @@ if datos:
         municipio_seleccionado = None
         
         if texto_busqueda:
-            # Filtramos ignorando mayúsculas/minúsculas
             opciones_filtradas = [m for m in municipios_unicos if texto_busqueda.lower() in m.lower()]
             
             if len(opciones_filtradas) == 1:
                 municipio_seleccionado = opciones_filtradas[0]
                 st.success(f"Sugerencia encontrada: {municipio_seleccionado}")
             elif len(opciones_filtradas) > 1:
-                # Si hay varias opciones, mostramos un selector desplegable
                 municipio_seleccionado = st.selectbox("Elige una opción:", options=opciones_filtradas)
             else:
                 st.warning("No se ha encontrado ningún municipio con ese nombre.")
 
-        # Bloque 2: El Botón de Aceptar (Clave para que no recargue solo al escribir)
         if st.button("✅ Aceptar", type="secondary"):
             if municipio_seleccionado:
+                # Guardamos en la memoria RAM temporal
                 st.session_state.municipio_guardado = municipio_seleccionado
-                st.rerun() # Aplicamos el cambio y refrescamos los resultados
+                # Pasamos la orden para guardarlo en el disco duro del navegador (Local Storage)
+                st.session_state.guardar_js = municipio_seleccionado
+                st.rerun() 
             else:
                 st.error("Por favor, escribe y selecciona un municipio válido primero.")
                 
         st.divider()
 
-        # Bloque 3: Filtros de configuración
         col_km, col_gas = st.columns(2)
         with col_km:
             radio_km = st.radio(
@@ -240,7 +238,6 @@ if datos:
             ((df["Precio_Diesel"].notna()) | (df["Precio_G95"].notna()))
         ].sort_values(col_orden, na_position='last')
 
-        # BARRA DE RESUMEN VISUAL
         if muni_ref:
             st.markdown(f"<div class='resumen-filtros'>📍 <b>{muni_ref}</b>  |  🚗 <b>{radio_km} km</b>  |  ⛽ <b>{tipo_combustible}</b></div>", unsafe_allow_html=True)
         
@@ -262,6 +259,5 @@ if datos:
 else:
     st.error("Sin conexión a los datos oficiales.")
 
-# Pie de página
 if fecha_act:
     st.markdown(f"<div style='text-align: center; color: #a3a8b8; font-size: 0.75rem; margin-top: 25px;'>Última actualización MINETUR: {fecha_act.strftime('%d/%m/%Y %H:%M:%S')}</div>", unsafe_allow_html=True)
