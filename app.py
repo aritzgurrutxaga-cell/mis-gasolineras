@@ -21,7 +21,7 @@ class SSLAdapter(HTTPAdapter):
 # 1. Configuración de la página
 st.set_page_config(page_title="Buscador Gasolineras", page_icon="⛽", layout="centered")
 
-# AJUSTES DE ESPACIADO PRECISOS Y DISEÑO CSS
+# AJUSTES DE ESPACIADO PRECISOS Y DE DISEÑO CSS
 st.markdown("""
     <style>
         .block-container {padding-top: 2rem; padding-bottom: 2rem;}
