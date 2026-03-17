@@ -5,7 +5,7 @@ import numpy as np
 import os
 import datetime
 import pytz
-from streamlit_js_eval import get_geolocation
+from streamlit_js_eval import get_geolocation, streamlit_js_eval
 from requests.adapters import HTTPAdapter
 from urllib3.util.ssl_ import create_urllib3_context
 
@@ -42,9 +42,9 @@ st.markdown("""
             border: 1px solid #e0e0e0;
         }
 
-        /* --- CSS PARA EL BOTÓN GIGANTE --- */
+        /* --- CSS PARA EL BOTÓN GIGANTE (Streamlit Primary = Rojo/Rosa por defecto) --- */
         div[data-testid="stButton"] button[kind="primary"] {
-            font-size: 1.4rem !important;
+            font-size: 1.25rem !important;
             font-weight: bold !important;
             padding: 1.5rem !important;
             border-radius: 12px !important;
@@ -68,28 +68,35 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- LÓGICA DE UBICACIÓN INSTANTÁNEA ---
+# --- INICIALIZACIÓN DE MEMORIA CACHÉ DE LA SESIÓN ---
 if 'solicitar_gps' not in st.session_state:
     st.session_state.solicitar_gps = False
+if 'municipio_guardado' not in st.session_state:
+    st.session_state.municipio_guardado = None
+
+# Consultar estado silencioso de los permisos en el navegador
+js_permiso = "navigator.permissions ? navigator.permissions.query({name: 'geolocation'}).then(res => res.state) : 'prompt'"
+estado_permiso = streamlit_js_eval(js_expressions=js_permiso, key="permiso_gps")
 
 loc = None
 lat_gps, lon_gps, muni_gps = None, None, None
+gps_denegado = (estado_permiso == "denied")
 
-# Si el usuario ya ha pulsado el botón en esta sesión
-if st.session_state.solicitar_gps:
+# LÓGICA DE UBICACIÓN INSTANTÁNEA
+if estado_permiso == "granted" or (st.session_state.solicitar_gps and not gps_denegado):
     loc = get_geolocation()
     
     # Mientras procesa o si aún no tiene las coordenadas
     if not loc or 'coords' not in loc:
         st.info("⏳ Cargando gasolineras...")
     else:
-        # Coordenadas obtenidas
+        # Coordenadas obtenidas correctamente
         lat_gps = loc['coords']['latitude']
         lon_gps = loc['coords']['longitude']
-else:
-    # Carga inicial inmediata: Mostramos el botón gigante
+elif not gps_denegado:
+    # Mostramos el botón gigante solo si NO nos han bloqueado previamente
     st.markdown("<h3 style='text-align: center; color: #555; font-size: 1.1rem; margin-bottom: 1rem;'>Descubre al instante dónde repostar más barato</h3>", unsafe_allow_html=True)
-    if st.button("📍 Mostrar gasolineras cercanas", use_container_width=True, type="primary"):
+    if st.button("📍 Mostrar gasolineras (Acepta el permiso de ubicación)", use_container_width=True, type="primary"):
         st.session_state.solicitar_gps = True
         st.rerun()
 
@@ -138,13 +145,34 @@ if datos:
         df["dist_temp"] = calcular_distancia(lat_gps, lon_gps, df["lat_num"], df["lon_num"])
         muni_gps = df.sort_values("dist_temp").iloc[0]["Municipio"]
 
-    # --- BLOQUE CONFIGURACIÓN: BÚSQUEDA MANUAL ---
-    with st.expander("🔍 Búsqueda manual", expanded=False):
-        st.write("Si prefieres no usar tu ubicación, elige tu municipio:")
+    # --- LÓGICA DE INTERFAZ: BÚSQUEDA MANUAL Y AVISO DE DENEGACIÓN ---
+    if gps_denegado:
+        # Mensaje de 1 línea, muy sutil y sin intrusión visual
+        st.markdown("<div style='text-align: center; color: #777; font-size: 0.85rem; margin-bottom: 10px;'>ℹ️ Has desactivado la ubicación automática. Puedes reactivarla en la configuración de tu navegador.</div>", unsafe_allow_html=True)
+
+    # El acordeón se abrirá por defecto SOLO si han denegado el GPS Y no han guardado todavía un municipio
+    abrir_busqueda = True if (gps_denegado and not st.session_state.municipio_guardado) else False
+
+    with st.expander("🔍 Búsqueda manual", expanded=abrir_busqueda):
         
-        # Ubicación
-        idx = municipios_unicos.index(muni_gps) if muni_gps in municipios_unicos else None
-        municipio_manual = st.selectbox("📍 Ubicación:", options=municipios_unicos, index=idx)
+        # Lógica para priorizar la caché de sesión o el GPS en el desplegable
+        idx = None
+        if st.session_state.municipio_guardado in municipios_unicos:
+            idx = municipios_unicos.index(st.session_state.municipio_guardado)
+        elif muni_gps in municipios_unicos:
+            idx = municipios_unicos.index(muni_gps)
+
+        # El parámetro 'placeholder' fuerza el texto en castellano cuando idx es None
+        municipio_manual = st.selectbox(
+            "📍 Selecciona tu municipio:", 
+            options=municipios_unicos, 
+            index=idx,
+            placeholder="Elige un municipio..."
+        )
+        
+        # Actualizamos la caché de inmediato cuando el usuario selecciona algo
+        if municipio_manual:
+            st.session_state.municipio_guardado = municipio_manual
         
         if lat_gps and (municipio_manual == muni_gps or municipio_manual is None):
             lat_ref, lon_ref = lat_gps, lon_gps
@@ -154,7 +182,6 @@ if datos:
         else:
             lat_ref, lon_ref = None, None
 
-        # Filtros divididos en dos columnas
         col_km, col_gas = st.columns(2)
         
         with col_km:
