@@ -54,19 +54,12 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- NUEVO: COMPROBACIÓN TEMPRANA DE UBICACIÓN Y BOTÓN ARRIBA ---
+# --- BOTÓN DE UBICACIÓN ---
 loc = get_geolocation()
-lat_gps, lon_gps, muni_gps = None, None, None
 
-if loc and 'coords' in loc:
-    lat_gps = loc['coords']['latitude']
-    lon_gps = loc['coords']['longitude']
-else:
-    # Si no hay ubicación, mostramos un mensaje amigable y el botón de recarga
-    st.info("📍 Activa el GPS para encontrar automáticamente las gasolineras más cercanas.")
-    if st.button("Permitir ubicación", type="primary", use_container_width=True):
+if not loc or 'coords' not in loc:
+    if st.button("Permitir ubicación", use_container_width=True):
         st.rerun()
-    st.write("") # Un pequeño espacio extra de respiro
 
 # 2. Carga de Datos
 @st.cache_data(ttl=3600, show_spinner="Actualizando precios...")
@@ -109,8 +102,11 @@ if datos:
     
     municipios_unicos = sorted(list(set([str(g["Municipio"]) for g in datos])))
 
-    # Calculamos el municipio actual solo si el GPS nos dio coordenadas arriba
-    if lat_gps and lon_gps:
+    lat_gps, lon_gps, muni_gps = None, None, None
+
+    if loc and 'coords' in loc:
+        lat_gps = loc['coords']['latitude']
+        lon_gps = loc['coords']['longitude']
         df["dist_temp"] = calcular_distancia(lat_gps, lon_gps, df["lat_num"], df["lon_num"])
         muni_gps = df.sort_values("dist_temp").iloc[0]["Municipio"]
 
