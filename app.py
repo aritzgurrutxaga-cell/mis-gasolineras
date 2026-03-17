@@ -24,8 +24,15 @@ st.set_page_config(page_title="Buscador Gasolineras", page_icon="⛽", layout="c
 # AJUSTES DE ESPACIADO PRECISOS Y DISEÑO CSS
 st.markdown("""
     <style>
-        /* Reducimos el padding superior para evitar huecos en blanco innecesarios */
-        .block-container {padding-top: 1.5rem; padding-bottom: 2rem;}
+        /* Eliminación agresiva del espacio superior de Streamlit */
+        .block-container {
+            padding-top: 1rem !important; 
+            padding-bottom: 2rem !important;
+            margin-top: 0rem !important;
+        }
+        header {visibility: hidden !important;}
+        #MainMenu {visibility: hidden !important;}
+        
         div[data-testid="stRadio"] > label {font-weight: bold; margin-bottom: -0.5rem;}
         div[data-testid="stRadio"] {margin-bottom: 0.5rem;}
         hr {margin-top: 0.5rem; margin-bottom: 1rem;}
@@ -42,12 +49,12 @@ st.markdown("""
             border: 1px solid #e0e0e0;
         }
 
-        /* --- CSS PARA BOTONES PRINCIPALES --- */
+        /* --- CSS PARA EL BOTÓN GIGANTE --- */
         div[data-testid="stButton"] button[kind="primary"] {
-            font-size: 1.3rem !important;
+            font-size: 1.4rem !important;
             font-weight: bold !important;
-            padding: 1.2rem !important;
-            border-radius: 10px !important;
+            padding: 1.5rem !important;
+            border-radius: 12px !important;
             box-shadow: 0 4px 10px rgba(0,0,0,0.15) !important;
             transition: all 0.2s ease-in-out !important;
         }
@@ -76,12 +83,12 @@ if 'municipio_guardado' not in st.session_state:
 if 'gps_fallido' not in st.session_state:
     st.session_state.gps_fallido = False
 
-# 1. Recuperamos la caché persistente del navegador
+# Recuperamos la caché persistente del navegador
 muni_cache = streamlit_js_eval(js_expressions="parent.window.localStorage.getItem('muni_gasolineras')", key="get_muni_cache")
 if muni_cache and muni_cache != "null" and not st.session_state.municipio_guardado:
     st.session_state.municipio_guardado = muni_cache
 
-# 2. Lógica oculta para guardar en la caché permanente
+# Lógica oculta para guardar en la caché permanente
 if 'guardar_js' in st.session_state and st.session_state.guardar_js:
     js_code = f"parent.window.localStorage.setItem('muni_gasolineras', '{st.session_state.guardar_js}')"
     streamlit_js_eval(js_expressions=js_code, key=f"set_{st.session_state.guardar_js}")
@@ -101,7 +108,7 @@ if not st.session_state.solicitar_gps and not st.session_state.municipio_guardad
     if st.button("📍 Mostrar gasolineras", use_container_width=True, type="primary"):
         st.session_state.solicitar_gps = True
         st.rerun()
-    st.stop() # Bloqueamos todo. No hay huecos ni cargas ocultas.
+    st.stop() 
 
 # ==========================================
 # PROCESAMIENTO DE UBICACIÓN
@@ -117,13 +124,13 @@ if not gps_denegado and not st.session_state.municipio_guardado:
     elif 'coords' not in loc:
         st.session_state.gps_fallido = True
         gps_denegado = True
-        st.rerun() # Forzamos recarga rápida para pasar al Estado 2
+        st.rerun() 
     else:
         lat_gps = loc['coords']['latitude']
         lon_gps = loc['coords']['longitude']
 
 # ==========================================
-# CARGA DE DATOS (Solo se ejecuta si pasamos la criba anterior)
+# CARGA DE DATOS 
 # ==========================================
 @st.cache_data(ttl=3600, show_spinner="Descargando precios oficiales...")
 def cargar_datos():
@@ -169,45 +176,37 @@ municipios_unicos = sorted(list(set([str(g["Municipio"]) for g in datos])))
 
 # ==========================================
 # ESTADO 2: PANTALLA DE SELECCIÓN MANUAL ÚNICA
-# Si falló el GPS y aún no hay municipio guardado
 # ==========================================
 if gps_denegado and not st.session_state.municipio_guardado:
     st.markdown("""
         <div style='text-align: center; margin-top: 1rem; margin-bottom: 2rem;'>
             <h3 style='color: #333;'>📍 Elige tu ubicación</h3>
-            <p style='color: #666; font-size: 0.95rem;'>No hemos podido acceder al GPS. Escribe tu municipio para empezar:</p>
+            <p style='color: #666; font-size: 0.95rem;'>No hemos podido acceder al GPS. Busca tu municipio para empezar:</p>
         </div>
     """, unsafe_allow_html=True)
     
-    texto_busqueda_inicio = st.text_input("Municipio:", placeholder="Ej: Madrid, Bilbao, Valencia...", label_visibility="collapsed")
-    municipio_seleccionado_inicio = None
-    
-    if texto_busqueda_inicio:
-        opciones_filtradas_inicio = [m for m in municipios_unicos if texto_busqueda_inicio.lower() in m.lower()]
-        
-        if len(opciones_filtradas_inicio) == 1:
-            municipio_seleccionado_inicio = opciones_filtradas_inicio[0]
-            st.success(f"Sugerencia: **{municipio_seleccionado_inicio}**")
-        elif len(opciones_filtradas_inicio) > 1:
-            municipio_seleccionado_inicio = st.selectbox("Elige de la lista:", options=opciones_filtradas_inicio)
-        else:
-            st.warning("No se ha encontrado ningún municipio con ese nombre.")
+    # El selectbox nativo filtra automáticamente al escribir
+    municipio_seleccionado_inicio = st.selectbox(
+        "Municipio:", 
+        options=municipios_unicos,
+        index=None,
+        placeholder="Escribe o selecciona tu municipio...",
+        label_visibility="collapsed"
+    )
 
-    if st.button("✅ Confirmar y buscar", type="primary", use_container_width=True):
+    if st.button("✅ Aceptar", type="primary", use_container_width=True):
         if municipio_seleccionado_inicio:
             st.session_state.municipio_guardado = municipio_seleccionado_inicio
             st.session_state.guardar_js = municipio_seleccionado_inicio
             st.rerun() 
         else:
-            st.error("Por favor, escribe un municipio válido antes de continuar.")
+            st.error("Por favor, selecciona un municipio válido de la lista antes de continuar.")
     
-    st.stop() # Bloqueamos aquí para que no se vea nada más hasta que elijan municipio
+    st.stop() 
 
 # ==========================================
 # ESTADO 3: PANTALLA DE RESULTADOS Y AJUSTES
-# Llegamos aquí si tenemos GPS o si ya hay un municipio guardado
 # ==========================================
-
 lat_ref, lon_ref, muni_ref = None, None, None
 
 if st.session_state.municipio_guardado:
@@ -219,27 +218,34 @@ elif lat_gps and lon_gps:
     muni_ref = df.sort_values("dist_temp").iloc[0]["Municipio"]
     lat_ref, lon_ref = lat_gps, lon_gps
 
-# Panel de Ajustes (Siempre cerrado por defecto en esta fase)
-with st.expander("⚙️ Ajustes y cambio de municipio", expanded=False):
+# Panel renombrado
+with st.expander("⚙️ Ajustes de búsqueda", expanded=False):
     st.write("Cambia tu ubicación manual o ajusta los filtros:")
     
-    # Buscador secundario por si quieren cambiar de pueblo
-    texto_busqueda_ajustes = st.text_input("Cambiar municipio:", placeholder="Escribe el nuevo municipio...")
-    municipio_cambio = None
+    idx_actual = municipios_unicos.index(muni_ref) if muni_ref in municipios_unicos else None
     
-    if texto_busqueda_ajustes:
-        opciones_ajustes = [m for m in municipios_unicos if texto_busqueda_ajustes.lower() in m.lower()]
-        if len(opciones_ajustes) == 1:
-            municipio_cambio = opciones_ajustes[0]
-            st.success(f"Nueva selección: {municipio_cambio}")
-        elif len(opciones_ajustes) > 1:
-            municipio_cambio = st.selectbox("Elige:", options=opciones_ajustes)
+    municipio_cambio = st.selectbox(
+        "Cambiar municipio:", 
+        options=municipios_unicos,
+        index=idx_actual,
+        placeholder="Busca un nuevo municipio..."
+    )
             
     if st.button("Actualizar municipio"):
-        if municipio_cambio:
+        if municipio_cambio and municipio_cambio != muni_ref:
             st.session_state.municipio_guardado = municipio_cambio
             st.session_state.guardar_js = municipio_cambio
             st.rerun()
+
+    st.write("") 
+    
+    # Botón para vaciar el Local Storage y volver al inicio
+    if st.button("🗑️ Borrar ubicación y reiniciar", type="secondary", use_container_width=True):
+        st.session_state.municipio_guardado = None
+        st.session_state.solicitar_gps = False
+        st.session_state.gps_fallido = False
+        streamlit_js_eval(js_expressions="parent.window.localStorage.removeItem('muni_gasolineras')", key="borrar_cache")
+        st.rerun()
 
     st.divider()
 
@@ -261,7 +267,6 @@ with st.expander("⚙️ Ajustes y cambio de municipio", expanded=False):
 
 col_orden = "Precio_Diesel" if tipo_combustible == "Diésel" else "Precio_G95"
 
-# Procesamiento de resultados finales
 df["Distancia"] = calcular_distancia(lat_ref, lon_ref, df["lat_num"], df["lon_num"])
 res = df[
     (df["Distancia"] <= radio_km) & 
