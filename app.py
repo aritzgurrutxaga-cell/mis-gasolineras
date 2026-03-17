@@ -72,11 +72,15 @@ if 'solicitar_gps' not in st.session_state:
     st.session_state.solicitar_gps = False
 if 'municipio_guardado' not in st.session_state:
     st.session_state.municipio_guardado = None
+if 'gps_fallido' not in st.session_state:
+    st.session_state.gps_fallido = False
 
 # Consultar estado de los permisos en el navegador
 js_permiso = "navigator.permissions ? navigator.permissions.query({name: 'geolocation'}).then(res => res.state) : 'prompt'"
 estado_permiso = streamlit_js_eval(js_expressions=js_permiso, key="permiso_gps")
-gps_denegado = (estado_permiso == "denied")
+
+# El GPS está denegado si el navegador lo dice explícitamente o si nuestro componente falló al intentarlo
+gps_denegado = (estado_permiso == "denied") or st.session_state.gps_fallido
 
 # --- PANTALLA INICIAL PURA (Solo el botón rojo) ---
 if not st.session_state.solicitar_gps:
@@ -84,7 +88,6 @@ if not st.session_state.solicitar_gps:
     if st.button("📍 Mostrar gasolineras", use_container_width=True, type="primary"):
         st.session_state.solicitar_gps = True
         st.rerun()
-    # Detenemos la ejecución aquí para que la primera vez sea super rápida y limpia
     st.stop()
 
 
@@ -98,14 +101,22 @@ lat_gps, lon_gps = None, None
 # Solo activamos la petición GPS si NO está denegado y NO hay un municipio guardado a mano
 if not gps_denegado and not st.session_state.municipio_guardado:
     loc = get_geolocation()
-    if not loc or 'coords' not in loc:
+    
+    if loc is None:
+        # 'None' significa que el navegador aún está preguntando al usuario
         st.info("⏳ Localizando...")
-        st.stop() # Esperamos a tener coordenadas antes de cargar toda la base de datos
+        st.stop() 
+    elif 'coords' not in loc:
+        # Si devuelve algo pero no hay coordenadas, es que el usuario le dio a "Cancelar"
+        st.session_state.gps_fallido = True
+        gps_denegado = True
+        # Aquí NO ponemos st.stop() para que el código continúe y abra la búsqueda manual
     else:
+        # Éxito: tenemos coordenadas
         lat_gps = loc['coords']['latitude']
         lon_gps = loc['coords']['longitude']
 
-# 2. Carga de Datos (Solo ocurre después de pulsar el botón)
+# 2. Carga de Datos (Ocurre si hay GPS, si hay municipio en caché, o si el GPS falló y vamos al manual)
 @st.cache_data(ttl=3600, show_spinner="Descargando precios oficiales...")
 def cargar_datos():
     url = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/"
@@ -150,7 +161,7 @@ if datos:
     lat_ref, lon_ref, muni_ref = None, None, None
 
     if st.session_state.municipio_guardado:
-        # Prioridad 1: Si eligió un municipio manual, mandan esas coordenadas
+        # Prioridad 1: Si eligió un municipio manual en caché, mandan esas coordenadas
         muni_ref = st.session_state.municipio_guardado
         fila_muni = df[df["Municipio"] == muni_ref].iloc[0]
         lat_ref, lon_ref = fila_muni["lat_num"], fila_muni["lon_num"]
@@ -167,8 +178,11 @@ if datos:
 
     with st.expander("🔍 Búsqueda manual", expanded=abrir_busqueda):
         
+        # Opcional: Pequeño aviso de que pasamos a modo manual si falló el GPS recién
+        if gps_denegado and not st.session_state.municipio_guardado:
+            st.warning("No hemos podido acceder a tu ubicación. Por favor, selecciona tu municipio a mano.")
+
         # Bloque 1: Input de texto y sugerencias
-        st.write("Selecciona tu municipio de referencia:")
         texto_busqueda = st.text_input(
             "📍 Escribe tu municipio:", 
             placeholder="Ej: Madrid, Bilbao, Valencia..."
@@ -189,7 +203,7 @@ if datos:
             else:
                 st.warning("No se ha encontrado ningún municipio con ese nombre.")
 
-        # Bloque 2: El Botón de Aceptar (Clave para que no recargue solo)
+        # Bloque 2: El Botón de Aceptar (Clave para que no recargue solo al escribir)
         if st.button("✅ Aceptar", type="secondary"):
             if municipio_seleccionado:
                 st.session_state.municipio_guardado = municipio_seleccionado
@@ -235,7 +249,7 @@ if datos:
                 with st.container(border=True):
                     col_info, col_btn = st.columns([2.4, 1.6], vertical_alignment="center")
                     with col_info:
-                        st.write(f"### {g['Rótulo']}") # Ya mostramos el municipio en el resumen arriba
+                        st.write(f"### {g['Rótulo']}")
                         p_diesel = f"{g['Precio Gasoleo A']} €" if pd.notnull(g['Precio_Diesel']) else "N/A"
                         p_g95 = f"{g['Precio Gasolina 95 E5']} €" if pd.notnull(g['Precio_G95']) else "N/A"
                         st.write(f"⛽ **D:** {p_diesel} | **G95:** {p_g95}")
