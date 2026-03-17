@@ -21,17 +21,26 @@ class SSLAdapter(HTTPAdapter):
 # 1. Configuración de la página
 st.set_page_config(page_title="Buscador Gasolineras", page_icon="⛽", layout="centered")
 
-# AJUSTES DE ESPACIADO PRECISOS
+# AJUSTES DE ESPACIADO PRECISOS Y DISEÑO CSS
 st.markdown("""
     <style>
-        .block-container {padding-top: 2.8rem;}
-        div[data-testid="stRadio"] > label {
-            font-weight: bold;
-            margin-bottom: -0.5rem;
-        }
+        .block-container {padding-top: 2rem; padding-bottom: 2rem;}
+        div[data-testid="stRadio"] > label {font-weight: bold; margin-bottom: -0.5rem;}
         div[data-testid="stRadio"] {margin-bottom: 0.5rem;}
         hr {margin-top: 0.5rem; margin-bottom: 1rem;}
-        h1 {margin-top: -0.8rem; margin-bottom: 0.8rem;}
+        h1 {margin-top: -1rem; margin-bottom: 0.5rem;}
+        
+        /* Estilo para la nueva barra de resumen visual */
+        .resumen-filtros {
+            text-align: center; 
+            color: #444; 
+            font-size: 0.95rem; 
+            margin-bottom: 1.5rem; 
+            background-color: #f0f2f6; 
+            padding: 10px; 
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -45,7 +54,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# 2. Carga de Datos (Sintaxis Corregida aquí)
+# 2. Carga de Datos
 @st.cache_data(ttl=3600, show_spinner="Actualizando precios...")
 def cargar_datos():
     url = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/"
@@ -77,9 +86,6 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
 
 datos, fecha_act = cargar_datos()
 
-if fecha_act:
-    st.markdown(f"<div style='text-align: center; color: gray; font-size: 0.8rem; margin-bottom: 15px;'>Actualizado: {fecha_act.strftime('%d/%m/%Y %H:%M:%S')}</div>", unsafe_allow_html=True)
-
 if datos:
     df = pd.DataFrame(datos)
     df["lat_num"] = pd.to_numeric(df["Latitud"].str.replace(",", "."), errors='coerce')
@@ -98,8 +104,14 @@ if datos:
         df["dist_temp"] = calcular_distancia(lat_gps, lon_gps, df["lat_num"], df["lon_num"])
         muni_gps = df.sort_values("dist_temp").iloc[0]["Municipio"]
 
-    # --- BLOQUE UBICACIÓN ---
-    with st.container(border=True):
+    # --- LÓGICA DE UX: El panel se abre solo si NO hay GPS ---
+    panel_abierto = lat_gps is None
+
+    # --- BLOQUE CONFIGURACIÓN EN ACORDEÓN ---
+    with st.expander("⚙️ Ajustes de Búsqueda (Ubicación, Distancia, Combustible)", expanded=panel_abierto):
+        st.write("Configura tus preferencias para encontrar los mejores precios:")
+        
+        # Ubicación
         idx = municipios_unicos.index(muni_gps) if muni_gps in municipios_unicos else None
         municipio_manual = st.selectbox("📍 Ubicación:", options=municipios_unicos, index=idx)
         
@@ -112,20 +124,25 @@ if datos:
         else:
             lat_ref, lon_ref = None, None
 
-    # --- BLOQUE CONFIGURACIÓN: BULLETS ---
-    radio_km = st.radio(
-        "Radio de búsqueda:",
-        options=[5, 10, 20, 50],
-        format_func=lambda x: f"{x} km",
-        index=1,
-        horizontal=True
-    )
-    
-    tipo_combustible = st.radio(
-        "Ordenar por precio de:", 
-        ["Diésel", "G95"], 
-        horizontal=True
-    )
+        # Filtros divididos en dos columnas para que ocupen la mitad de espacio
+        col_km, col_gas = st.columns(2)
+        
+        with col_km:
+            radio_km = st.radio(
+                "Radio de búsqueda:",
+                options=[5, 10, 20, 50],
+                format_func=lambda x: f"{x} km",
+                index=1,
+                horizontal=True
+            )
+            
+        with col_gas:
+            tipo_combustible = st.radio(
+                "Ordenar por precio de:", 
+                ["Diésel", "G95"], 
+                horizontal=True
+            )
+
     col_orden = "Precio_Diesel" if tipo_combustible == "Diésel" else "Precio_G95"
 
     # --- RESULTADOS ---
@@ -136,22 +153,30 @@ if datos:
             ((df["Precio_Diesel"].notna()) | (df["Precio_G95"].notna()))
         ].sort_values(col_orden, na_position='last')
 
-        st.divider()
+        # BARRA DE RESUMEN VISUAL (Se ve siempre, aunque los filtros estén cerrados)
+        muni_mostrar = municipio_manual if municipio_manual else muni_gps
+        st.markdown(f"<div class='resumen-filtros'>📍 <b>{muni_mostrar}</b> &nbsp;|&nbsp; 🚗 <b>{radio_km} km</b> &nbsp;|&nbsp; ⛽ <b>{tipo_combustible}</b></div>", unsafe_allow_html=True)
         
         if not res.empty:
             for _, g in res.head(20).iterrows():
                 with st.container(border=True):
-                    col_info, col_btn = st.columns([2.4, 1.6])
+                    # Uso de vertical_alignment para que los botones queden centrados con el texto
+                    col_info, col_btn = st.columns([2.4, 1.6], vertical_alignment="center")
                     with col_info:
                         st.write(f"### {g['Rótulo']} - {g['Municipio']}")
                         p_diesel = f"{g['Precio Gasoleo A']} €" if pd.notnull(g['Precio_Diesel']) else "N/A"
                         p_g95 = f"{g['Precio Gasolina 95 E5']} €" if pd.notnull(g['Precio_G95']) else "N/A"
                         st.write(f"⛽ **D:** {p_diesel} | **G95:** {p_g95}")
-                        st.caption(f"📍 {g['Distancia']:.2f} km | {g['Dirección']}")
+                        st.caption(f"📍 A {g['Distancia']:.2f} km | {g['Dirección']}")
                     with col_btn:
-                        url_map = f"https://www.google.com/maps?q={g['lat_num']},{g['lon_num']}"
-                        st.link_button("📍 Navegar", url_map, use_container_width=True)
+                        # URL mejorada para trazar la ruta oficial en Google Maps
+                        url_map = f"https://www.google.com/maps/dir/?api=1&destination={g['lat_num']},{g['lon_num']}"
+                        st.link_button("🗺️ Ir allí", url_map, use_container_width=True)
         else:
-            st.warning("No hay resultados en este radio.")
+            st.warning(f"No hay resultados en un radio de {radio_km} km.")
 else:
     st.error("Sin conexión a los datos oficiales.")
+
+# Pie de página más sutil al final
+if fecha_act:
+    st.markdown(f"<div style='text-align: center; color: #a3a8b8; font-size: 0.75rem; margin-top: 25px;'>Última actualización MINETUR: {fecha_act.strftime('%d/%m/%Y %H:%M:%S')}</div>", unsafe_allow_html=True)
