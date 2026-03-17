@@ -132,7 +132,7 @@ if datos:
                 "Radio de búsqueda:",
                 options=[5, 10, 20, 50],
                 format_func=lambda x: f"{x} km",
-                index=1,
+                index=0, # CAMBIO APLICADO: Ahora el índice 0 selecciona los 5 km por defecto
                 horizontal=True
             )
             
@@ -153,14 +153,13 @@ if datos:
             ((df["Precio_Diesel"].notna()) | (df["Precio_G95"].notna()))
         ].sort_values(col_orden, na_position='last')
 
-        # BARRA DE RESUMEN VISUAL (Se ve siempre, aunque los filtros estén cerrados)
+        # BARRA DE RESUMEN VISUAL
         muni_mostrar = municipio_manual if municipio_manual else muni_gps
-        st.markdown(f"<div class='resumen-filtros'>📍 <b>{muni_mostrar}</b> &nbsp;|&nbsp; 🚗 <b>{radio_km} km</b> &nbsp;|&nbsp; ⛽ <b>{tipo_combustible}</b></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='resumen-filtros'>📍 <b>{muni_mostrar}</b>  |  🚗 <b>{radio_km} km</b>  |  ⛽ <b>{tipo_combustible}</b></div>", unsafe_allow_html=True)
         
         if not res.empty:
             for _, g in res.head(20).iterrows():
                 with st.container(border=True):
-                    # Uso de vertical_alignment para que los botones queden centrados con el texto
                     col_info, col_btn = st.columns([2.4, 1.6], vertical_alignment="center")
                     with col_info:
                         st.write(f"### {g['Rótulo']} - {g['Municipio']}")
@@ -169,7 +168,6 @@ if datos:
                         st.write(f"⛽ **D:** {p_diesel} | **G95:** {p_g95}")
                         st.caption(f"📍 A {g['Distancia']:.2f} km | {g['Dirección']}")
                     with col_btn:
-                        # URL mejorada para trazar la ruta oficial en Google Maps
                         url_map = f"https://www.google.com/maps/dir/?api=1&destination={g['lat_num']},{g['lon_num']}"
                         st.link_button("🗺️ Ir allí", url_map, use_container_width=True)
         else:
@@ -177,6 +175,6 @@ if datos:
 else:
     st.error("Sin conexión a los datos oficiales.")
 
-# Pie de página más sutil al final
+# Pie de página
 if fecha_act:
     st.markdown(f"<div style='text-align: center; color: #a3a8b8; font-size: 0.75rem; margin-top: 25px;'>Última actualización MINETUR: {fecha_act.strftime('%d/%m/%Y %H:%M:%S')}</div>", unsafe_allow_html=True)
