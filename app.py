@@ -5,7 +5,7 @@ import numpy as np
 import os
 import datetime
 import pytz
-from streamlit_js_eval import get_geolocation, streamlit_js_eval
+from streamlit_js_eval import get_geolocation
 from requests.adapters import HTTPAdapter
 from urllib3.util.ssl_ import create_urllib3_context
 
@@ -68,31 +68,26 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- LÓGICA DE UBICACIÓN INTELIGENTE (MEMORIA DE NAVEGADOR) ---
-
+# --- LÓGICA DE UBICACIÓN INSTANTÁNEA ---
 if 'solicitar_gps' not in st.session_state:
     st.session_state.solicitar_gps = False
-
-js_permiso = "navigator.permissions ? navigator.permissions.query({name: 'geolocation'}).then(res => res.state) : 'prompt'"
-estado_permiso = streamlit_js_eval(js_expressions=js_permiso, key="permiso_gps")
 
 loc = None
 lat_gps, lon_gps, muni_gps = None, None, None
 
-# Si el permiso ya estaba concedido ("granted") o el usuario acaba de pulsar nuestro botón
-if estado_permiso == "granted" or st.session_state.solicitar_gps:
+# Si el usuario ya ha pulsado el botón en esta sesión
+if st.session_state.solicitar_gps:
     loc = get_geolocation()
-
-    # Si no hay coordenadas (aún está pensando o esperando a que el usuario acepte)
+    
+    # Mientras procesa o si aún no tiene las coordenadas
     if not loc or 'coords' not in loc:
         st.info("⏳ Cargando gasolineras...")
     else:
-        # Todo perfecto, capturamos las coordenadas
+        # Coordenadas obtenidas
         lat_gps = loc['coords']['latitude']
         lon_gps = loc['coords']['longitude']
-
 else:
-    # Mostramos el botón gigante si aún no hay permiso
+    # Carga inicial inmediata: Mostramos el botón gigante
     st.markdown("<h3 style='text-align: center; color: #555; font-size: 1.1rem; margin-bottom: 1rem;'>Descubre al instante dónde repostar más barato</h3>", unsafe_allow_html=True)
     if st.button("📍 Mostrar gasolineras cercanas", use_container_width=True, type="primary"):
         st.session_state.solicitar_gps = True
