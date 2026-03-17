@@ -5,8 +5,7 @@ import numpy as np
 import os
 import datetime
 import pytz
-# Añadimos streamlit_js_eval a la importación para poder forzar el F5
-from streamlit_js_eval import get_geolocation, streamlit_js_eval 
+from streamlit_js_eval import get_geolocation, streamlit_js_eval
 from requests.adapters import HTTPAdapter
 from urllib3.util.ssl_ import create_urllib3_context
 
@@ -55,13 +54,44 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- BOTÓN DE UBICACIÓN CORREGIDO ---
-loc = get_geolocation()
+# --- NUEVA LÓGICA DE UBICACIÓN A DEMANDA ---
+# 1. Creamos una variable en la memoria para saber si el usuario ha pedido usar el GPS
+if 'solicitar_gps' not in st.session_state:
+    st.session_state.solicitar_gps = False
 
-if not loc or 'coords' not in loc:
-    if st.button("Permitir ubicación", use_container_width=True):
-        # Esto fuerza una recarga real del navegador (como pulsar F5)
-        streamlit_js_eval(js_expressions="parent.window.location.reload()")
+loc = None
+lat_gps, lon_gps, muni_gps = None, None, None
+
+# 2. Si no ha pulsado el botón, le damos la opción de hacerlo
+if not st.session_state.solicitar_gps:
+    st.info("📍 Usa el buscador manual en los ajustes de abajo o permite el GPS para mayor rapidez.")
+    if st.button("Mostrar gasolineras cercanas", use_container_width=True, type="primary"):
+        # Al pulsar, cambiamos la memoria y recargamos la página para activar el GPS
+        st.session_state.solicitar_gps = True
+        st.rerun()
+else:
+    # 3. Solo si ha pulsado el botón, lanzamos la petición al navegador
+    loc = get_geolocation()
+
+    # Si está cargando la alerta o si le dio a "Bloquear"
+    if not loc or 'coords' not in loc:
+        # Mensaje en rojo exigiendo el permiso
+        st.markdown("""
+            <div style='background-color: #ffe8e8; padding: 15px; border-radius: 8px; border: 2px solid #ff4b4b; text-align: center; margin-bottom: 15px;'>
+                <span style='color: #d32f2f; font-weight: bold; font-size: 1.1rem;'>
+                    ⚠️ Por favor, permite el acceso a tu ubicación en la alerta del navegador para continuar.
+                </span>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # Mantenemos el botón de recarga "dura" por si cerró la alerta por error
+        if st.button("🔄 Ya he dado permiso, recargar", use_container_width=True):
+            streamlit_js_eval(js_expressions="parent.window.location.reload()")
+    else:
+        # Si aceptó, extraemos las coordenadas
+        lat_gps = loc['coords']['latitude']
+        lon_gps = loc['coords']['longitude']
+
 
 # 2. Carga de Datos
 @st.cache_data(ttl=3600, show_spinner="Actualizando precios...")
@@ -104,11 +134,8 @@ if datos:
     
     municipios_unicos = sorted(list(set([str(g["Municipio"]) for g in datos])))
 
-    lat_gps, lon_gps, muni_gps = None, None, None
-
-    if loc and 'coords' in loc:
-        lat_gps = loc['coords']['latitude']
-        lon_gps = loc['coords']['longitude']
+    # Si logramos obtener el GPS gracias al nuevo botón, calculamos su pueblo
+    if lat_gps and lon_gps:
         df["dist_temp"] = calcular_distancia(lat_gps, lon_gps, df["lat_num"], df["lon_num"])
         muni_gps = df.sort_values("dist_temp").iloc[0]["Municipio"]
 
