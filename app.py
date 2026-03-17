@@ -5,7 +5,8 @@ import numpy as np
 import os
 import datetime
 import pytz
-from streamlit_js_eval import get_geolocation
+# Añadimos streamlit_js_eval a la importación para poder forzar el F5
+from streamlit_js_eval import get_geolocation, streamlit_js_eval 
 from requests.adapters import HTTPAdapter
 from urllib3.util.ssl_ import create_urllib3_context
 
@@ -21,7 +22,7 @@ class SSLAdapter(HTTPAdapter):
 # 1. Configuración de la página
 st.set_page_config(page_title="Buscador Gasolineras", page_icon="⛽", layout="centered")
 
-# AJUSTES DE ESPACIADO PRECISOS Y DE DISEÑO CSS
+# AJUSTES DE ESPACIADO PRECISOS Y DISEÑO CSS
 st.markdown("""
     <style>
         .block-container {padding-top: 2rem; padding-bottom: 2rem;}
@@ -54,12 +55,13 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- BOTÓN DE UBICACIÓN ---
+# --- BOTÓN DE UBICACIÓN CORREGIDO ---
 loc = get_geolocation()
 
 if not loc or 'coords' not in loc:
     if st.button("Permitir ubicación", use_container_width=True):
-        st.rerun()
+        # Esto fuerza una recarga real del navegador (como pulsar F5)
+        streamlit_js_eval(js_expressions="parent.window.location.reload()")
 
 # 2. Carga de Datos
 @st.cache_data(ttl=3600, show_spinner="Actualizando precios...")
