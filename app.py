@@ -70,12 +70,9 @@ st.markdown(
 
 # --- LÓGICA DE UBICACIÓN INTELIGENTE (MEMORIA DE NAVEGADOR) ---
 
-# Control de sesión para saber si ha pulsado el botón ahora mismo
 if 'solicitar_gps' not in st.session_state:
     st.session_state.solicitar_gps = False
 
-# Preguntamos discretamente al navegador si ya nos dio permiso en el pasado
-# (devuelve "granted", "prompt" o "denied")
 js_permiso = "navigator.permissions ? navigator.permissions.query({name: 'geolocation'}).then(res => res.state) : 'prompt'"
 estado_permiso = streamlit_js_eval(js_expressions=js_permiso, key="permiso_gps")
 
@@ -86,28 +83,16 @@ lat_gps, lon_gps, muni_gps = None, None, None
 if estado_permiso == "granted" or st.session_state.solicitar_gps:
     loc = get_geolocation()
 
-    # Si no hay coordenadas (aún está pensando o el usuario le dio a "Bloquear")
+    # Si no hay coordenadas (aún está pensando o esperando a que el usuario acepte)
     if not loc or 'coords' not in loc:
-        # Mostramos la alerta roja solo si realmente rechazó o si está bloqueado
-        if estado_permiso == "denied" or st.session_state.solicitar_gps:
-            st.markdown("""
-                <div style='background-color: #ffe8e8; padding: 15px; border-radius: 8px; border: 2px solid #ff4b4b; text-align: center; margin-bottom: 15px;'>
-                    <span style='color: #d32f2f; font-weight: bold; font-size: 1.1rem;'>
-                        ⚠️ Por favor, permite el acceso a tu ubicación en el candado 🔒 de tu navegador para continuar.
-                    </span>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            # Botón de refresco manual por si el usuario cambia el permiso en el candado
-            if st.button("🔄 Ya he dado permiso, recargar", use_container_width=True):
-                streamlit_js_eval(js_expressions="parent.window.location.reload()", key="recarga_manual")
+        st.info("⏳ Cargando gasolineras...")
     else:
         # Todo perfecto, capturamos las coordenadas
         lat_gps = loc['coords']['latitude']
         lon_gps = loc['coords']['longitude']
 
 else:
-    # Si el estado es "prompt" o "denied" Y NO ha pulsado el botón en esta visita, mostramos el botón gigante
+    # Mostramos el botón gigante si aún no hay permiso
     st.markdown("<h3 style='text-align: center; color: #555; font-size: 1.1rem; margin-bottom: 1rem;'>Descubre al instante dónde repostar más barato</h3>", unsafe_allow_html=True)
     if st.button("📍 Mostrar gasolineras cercanas", use_container_width=True, type="primary"):
         st.session_state.solicitar_gps = True
