@@ -41,6 +41,20 @@ st.markdown("""
             border-radius: 8px;
             border: 1px solid #e0e0e0;
         }
+
+        /* --- CSS PARA EL BOTÓN GIGANTE --- */
+        div[data-testid="stButton"] button[kind="primary"] {
+            font-size: 1.4rem !important;
+            font-weight: bold !important;
+            padding: 1.5rem !important;
+            border-radius: 12px !important;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15) !important;
+            transition: all 0.2s ease-in-out !important;
+        }
+        div[data-testid="stButton"] button[kind="primary"]:hover {
+            transform: scale(1.02);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.2) !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -54,23 +68,23 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- NUEVA LÓGICA DE UBICACIÓN A DEMANDA ---
-# 1. Creamos una variable en la memoria para saber si el usuario ha pedido usar el GPS
+# --- LÓGICA DE UBICACIÓN A DEMANDA ---
 if 'solicitar_gps' not in st.session_state:
     st.session_state.solicitar_gps = False
 
 loc = None
 lat_gps, lon_gps, muni_gps = None, None, None
 
-# 2. Si no ha pulsado el botón, le damos la opción de hacerlo
+# Si no ha pulsado el botón, mostramos el botón GIGANTE
 if not st.session_state.solicitar_gps:
-    st.info("📍 Usa el buscador manual en los ajustes de abajo o permite el GPS para mayor rapidez.")
-    if st.button("Mostrar gasolineras cercanas", use_container_width=True, type="primary"):
-        # Al pulsar, cambiamos la memoria y recargamos la página para activar el GPS
+    st.markdown("<h3 style='text-align: center; color: #555; font-size: 1.1rem; margin-bottom: 1rem;'>Descubre al instante dónde repostar más barato</h3>", unsafe_allow_html=True)
+    
+    # El type="primary" es lo que enlaza con nuestro CSS gigante
+    if st.button("📍 Mostrar gasolineras cercanas", use_container_width=True, type="primary"):
         st.session_state.solicitar_gps = True
         st.rerun()
 else:
-    # 3. Solo si ha pulsado el botón, lanzamos la petición al navegador
+    # Solo si ha pulsado el botón, lanzamos la petición al navegador
     loc = get_geolocation()
 
     # Si está cargando la alerta o si le dio a "Bloquear"
@@ -84,7 +98,7 @@ else:
             </div>
         """, unsafe_allow_html=True)
         
-        # Mantenemos el botón de recarga "dura" por si cerró la alerta por error
+        # Botón secundario para refrescar si cerró la alerta
         if st.button("🔄 Ya he dado permiso, recargar", use_container_width=True):
             streamlit_js_eval(js_expressions="parent.window.location.reload()")
     else:
@@ -134,15 +148,13 @@ if datos:
     
     municipios_unicos = sorted(list(set([str(g["Municipio"]) for g in datos])))
 
-    # Si logramos obtener el GPS gracias al nuevo botón, calculamos su pueblo
     if lat_gps and lon_gps:
         df["dist_temp"] = calcular_distancia(lat_gps, lon_gps, df["lat_num"], df["lon_num"])
         muni_gps = df.sort_values("dist_temp").iloc[0]["Municipio"]
 
-    # --- BLOQUE CONFIGURACIÓN EN ACORDEÓN ---
-    # CAMBIO: expanded=False fuerza a que SIEMPRE aparezca minimizado al entrar
-    with st.expander("⚙️ Ajustes de Búsqueda (Ubicación, Distancia, Combustible)", expanded=False):
-        st.write("Configura tus preferencias para encontrar los mejores precios:")
+    # --- BLOQUE CONFIGURACIÓN: AHORA LLAMADO "BÚSQUEDA MANUAL" ---
+    with st.expander("🔍 Búsqueda manual", expanded=False):
+        st.write("Si prefieres no usar tu ubicación, elige tu municipio:")
         
         # Ubicación
         idx = municipios_unicos.index(muni_gps) if muni_gps in municipios_unicos else None
@@ -150,7 +162,6 @@ if datos:
         
         if lat_gps and (municipio_manual == muni_gps or municipio_manual is None):
             lat_ref, lon_ref = lat_gps, lon_gps
-            st.success("✅ GPS Activo")
         elif municipio_manual:
             ref = df[df["Municipio"] == municipio_manual].iloc[0]
             lat_ref, lon_ref = ref["lat_num"], ref["lon_num"]
@@ -188,7 +199,7 @@ if datos:
 
         # BARRA DE RESUMEN VISUAL
         muni_mostrar = municipio_manual if municipio_manual else muni_gps
-        if muni_mostrar: # Solo mostramos el resumen si ya sabemos qué municipio buscar
+        if muni_mostrar: 
             st.markdown(f"<div class='resumen-filtros'>📍 <b>{muni_mostrar}</b>  |  🚗 <b>{radio_km} km</b>  |  ⛽ <b>{tipo_combustible}</b></div>", unsafe_allow_html=True)
         
         if not res.empty:
@@ -205,7 +216,7 @@ if datos:
                         url_map = f"https://www.google.com/maps/dir/?api=1&destination={g['lat_num']},{g['lon_num']}"
                         st.link_button("🗺️ Ir allí", url_map, use_container_width=True)
         else:
-            st.warning(f"No hay resultados en un radio de {radio_km} km. Prueba a ampliar el radio de búsqueda en los Ajustes.")
+            st.warning(f"No hay resultados en un radio de {radio_km} km. Prueba a ampliar el radio en la Búsqueda manual.")
 else:
     st.error("Sin conexión a los datos oficiales.")
 
