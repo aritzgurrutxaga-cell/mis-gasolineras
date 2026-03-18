@@ -95,11 +95,19 @@ muni_cache = streamlit_js_eval(js_expressions="parent.window.localStorage.getIte
 if muni_cache and muni_cache != "null" and not st.session_state.municipio_guardado:
     st.session_state.municipio_guardado = muni_cache
 
+# --- GUARDADO INFALIBLE EN MEMORIA ---
+# Este bloque garantiza que el navegador siempre guarde el municipio, pase lo que pase con los botones.
+if st.session_state.municipio_guardado:
+    components.html(
+        f"<script>window.parent.localStorage.setItem('muni_gasolineras', '{st.session_state.municipio_guardado}');</script>",
+        height=0
+    )
+
 # --- SELECTOR DE IDIOMA (CON CORRECCIÓN DE DESPLIEGUE) ---
 lang_sel = st.radio("Idioma", ["EU", "ES"], index=0 if st.session_state.lang == "eu" else 1, horizontal=True, label_visibility="collapsed")
 if lang_sel.lower() != st.session_state.lang:
     st.session_state.lang = lang_sel.lower()
-    st.session_state.ajustes_abiertos = False  # <--- FIX: Fuerza a que el menú se cierre al cambiar de idioma
+    st.session_state.ajustes_abiertos = False
     st.rerun()
 
 t = TRAD[st.session_state.lang]
