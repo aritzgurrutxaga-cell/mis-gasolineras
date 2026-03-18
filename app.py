@@ -223,8 +223,8 @@ with st.expander(titulo_expander, expanded=False):
         st.session_state.exp_key = 1 - st.session_state.exp_key  # Cambia la clave invisible, forzando cierre
         st.rerun()
         
-    # NUEVO BOTÓN: Solo aparece si hay GPS disponible
-    if lat_gps:
+    # NUEVO BOTÓN: Aparece si hay permisos de GPS (independientemente de si estamos en modo manual o no)
+    if (estado_permiso == "granted" or st.session_state.solicitar_gps) and not st.session_state.gps_fallido:
         if st.button(t['btn_cercanas'], use_container_width=True):
             st.session_state.radio_km = nuevo_radio
             st.session_state.tipo_combustible = nuevo_tipo
