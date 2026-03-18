@@ -13,7 +13,7 @@ TRAD = {
     "eu": {
         "subtitulo": "Konparatu prezioak denbora errealean eta aurreztu depositua betetzean.",
         "btn_inicio": "📍 Erakutsi gasolindegiak",
-        "btn_sub": "Gomendagarria da kokapena erabiltzea bilatzeko",
+        "btn_inicio_sub": "Gomendagarria da kokapena erabiltzea bilatzeko",
         "localizando": "⏳ Kokapena bilatzen...",
         "escribe_muni": "📍 Idatzi zure udalerria:",
         "placeholder": "Bilatu...",
@@ -31,7 +31,7 @@ TRAD = {
     "es": {
         "subtitulo": "Compara precios en tiempo real y ahorra en cada repostaje.",
         "btn_inicio": "📍 Mostrar gasolineras",
-        "btn_sub": "Es recomendable la ubicación para buscar",
+        "btn_inicio_sub": "Es recomendable la ubicación para buscar",
         "localizando": "⏳ Localizando...",
         "escribe_muni": "📍 Escribe tu municipio:",
         "placeholder": "Buscar...",
@@ -90,13 +90,18 @@ if 'radio_km' not in st.session_state: st.session_state.radio_km = 5
 if 'tipo_combustible' not in st.session_state: st.session_state.tipo_combustible = "Diésel"
 if 'ajustes_abiertos' not in st.session_state: st.session_state.ajustes_abiertos = False
 
-t = TRAD[st.session_state.lang]
+# --- LECTURA DE MEMORIA PRIORITARIA (ESTO EVITA QUE SE PIERDA EL MUNICIPIO) ---
+muni_cache = streamlit_js_eval(js_expressions="parent.window.localStorage.getItem('muni_gasolineras')", key="get_muni_cache")
+if muni_cache and muni_cache != "null" and not st.session_state.municipio_guardado:
+    st.session_state.municipio_guardado = muni_cache
 
-# --- SELECTOR DE IDIOMA (SIN COLUMNAS, DIRECTO AL DOM) ---
+# --- SELECTOR DE IDIOMA (AHORA SEGURO) ---
 lang_sel = st.radio("Idioma", ["EU", "ES"], index=0 if st.session_state.lang == "eu" else 1, horizontal=True, label_visibility="collapsed")
 if lang_sel.lower() != st.session_state.lang:
     st.session_state.lang = lang_sel.lower()
     st.rerun()
+
+t = TRAD[st.session_state.lang]
 
 # --- AJUSTES DE DISEÑO CSS ---
 st.markdown(f"""
@@ -107,15 +112,14 @@ st.markdown(f"""
         iframe {{ display: none !important; height: 0px !important; }}
         .element-container:has(iframe) {{ display: none !important; }}
         
-        /* MAGIA CSS: Sacamos el contenedor del idioma del flujo y lo fijamos arriba a la izquierda */
+        /* SELECTOR DE IDIOMA: Absoluto, arriba a la IZQUIERDA, ocupando 0 espacio real */
         .element-container:has(div[role="radiogroup"][aria-label="Idioma"]) {{
             position: absolute !important;
-            top: 0px !important;  /* Empujado al máximo hacia arriba */
-            left: 15px !important; /* Movido a la izquierda */
+            top: 0px !important;  
+            left: 15px !important; 
             z-index: 9999 !important;
             width: auto !important;
         }}
-        /* Hacemos los bullets más pequeños y juntos */
         div[role="radiogroup"][aria-label="Idioma"] {{
             gap: 10px !important;
         }}
@@ -124,7 +128,7 @@ st.markdown(f"""
             font-weight: 800 !important;
         }}
 
-        /* --- TODO LO DE ABAJO ES TU V1 EXACTA --- */
+        /* --- CSS V1 ORIGINAL A PARTIR DE AQUÍ --- */
         div[data-baseweb="select"] > div {{
             padding: 4px 12px !important; min-height: 54px !important;
             border-radius: 12px !important; font-size: 1.15rem !important; 
@@ -172,7 +176,7 @@ st.markdown(f"""
         }}
         div[data-testid="stButton"] button[kind="primary"] p {{ font-size: 1.4rem !important; margin: 0 !important; }}
         div[data-testid="stButton"] button[kind="primary"]::after {{
-            content: "{t['btn_sub']}";
+            content: "{t['btn_inicio_sub']}";
             font-size: 0.85rem !important; font-weight: normal !important;
             opacity: 0.9; display: block; margin-top: 8px;
         }}
@@ -182,11 +186,6 @@ st.markdown(f"""
         details div[data-testid="stButton"] button[kind="primary"]::after {{ content: none !important; }}
     </style>
 """, unsafe_allow_html=True)
-
-# Recuperar caché persistente
-muni_cache = streamlit_js_eval(js_expressions="parent.window.localStorage.getItem('muni_gasolineras')", key="get_muni_cache")
-if muni_cache and muni_cache != "null" and not st.session_state.municipio_guardado:
-    st.session_state.municipio_guardado = muni_cache
 
 @st.cache_data(ttl=3600)
 def cargar_datos():
