@@ -96,7 +96,6 @@ if st.session_state.municipio_guardado:
 lang_sel = st.radio("Idioma", ["EU", "ES"], index=0 if st.session_state.lang == "eu" else 1, horizontal=True, label_visibility="collapsed")
 if lang_sel.lower() != st.session_state.lang:
     st.session_state.lang = lang_sel.lower()
-    st.session_state.ajustes_abiertos = False
     st.rerun()
 
 t = TRAD[st.session_state.lang]
@@ -198,17 +197,18 @@ else:
     fila = df[df["Municipio"] == muni_ref].iloc[0]
     lat_ref, lon_ref = fila["lat_num"], fila["lon_num"]
 
-with st.expander(t['ajustes_tit'], expanded=st.session_state.ajustes_abiertos):
+# FIJAMOS EL EXPANDER A FALSE PARA QUE CIERRE SIEMPRE TRAS CUALQUIER RECARGA
+with st.expander(t['ajustes_tit'], expanded=False):
     nuevo_muni = st.selectbox(t['cambiar_muni'], options=municipios_unicos, index=municipios_unicos.index(muni_ref) if muni_ref in municipios_unicos else None)
     if nuevo_muni != muni_ref: cerrar_teclado_movil()
     nuevo_radio = st.radio(t['radio'], [5, 10, 20], index=[5, 10, 20].index(st.session_state.radio_km), horizontal=True)
     nuevo_tipo = st.radio(t['ordenar'], ["Diésel", "G95"], index=0 if st.session_state.tipo_combustible == "Diésel" else 1, horizontal=True)
+    
     if st.button(t['btn_buscar'], use_container_width=True, type="primary"):
         st.session_state.municipio_guardado = nuevo_muni
         st.session_state.radio_km = nuevo_radio
         st.session_state.tipo_combustible = nuevo_tipo
         st.session_state.override_manual = True
-        st.session_state.ajustes_abiertos = False # CERRAMOS AQUÍ
         st.rerun()
 
 col_orden = "Precio_Diesel" if st.session_state.tipo_combustible == "Diésel" else "Precio_G95"
