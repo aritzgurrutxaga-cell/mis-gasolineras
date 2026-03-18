@@ -107,11 +107,11 @@ st.markdown(f"""
         iframe {{ display: none !important; height: 0px !important; }}
         .element-container:has(iframe) {{ display: none !important; }}
         
-        /* MAGIA CSS: Sacamos el contenedor del idioma del flujo para que ocupe 0 espacio vertical */
+        /* MAGIA CSS: Sacamos el contenedor del idioma del flujo y lo fijamos arriba a la izquierda */
         .element-container:has(div[role="radiogroup"][aria-label="Idioma"]) {{
             position: absolute !important;
-            top: 15px !important;
-            right: 15px !important;
+            top: 0px !important;  /* Empujado al máximo hacia arriba */
+            left: 15px !important; /* Movido a la izquierda */
             z-index: 9999 !important;
             width: auto !important;
         }}
