@@ -157,12 +157,13 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-# --- SELECTOR DE IDIOMA ---
-cols_lang = st.columns([4, 1])
+# --- SELECTOR DE IDIOMA COMPACTO (Bullets horizontales) ---
+cols_lang = st.columns([3.5, 1.5]) # Ajustado para que los botones de radio quepan bien
 with cols_lang[1]:
-    lang_choice = st.selectbox("Idioma", ["EU", "ES"], 
-                               index=0 if st.session_state.lang == "eu" else 1, 
-                               label_visibility="collapsed")
+    lang_choice = st.radio("Idioma", ["EU", "ES"], 
+                           index=0 if st.session_state.lang == "eu" else 1, 
+                           horizontal=True,
+                           label_visibility="collapsed")
     if lang_choice.lower() != st.session_state.lang:
         st.session_state.lang = lang_choice.lower()
         st.rerun()
