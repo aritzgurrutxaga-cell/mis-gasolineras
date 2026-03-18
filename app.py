@@ -90,6 +90,17 @@ if 'ajustes_abiertos' not in st.session_state: st.session_state.ajustes_abiertos
 
 t = TRAD[st.session_state.lang]
 
+# --- SELECTOR DE IDIOMA COMPACTO (ARRIBA DEL TODO) ---
+cols_lang = st.columns([4, 1.2]) 
+with cols_lang[1]:
+    lang_choice = st.radio("Idioma", ["EU", "ES"], 
+                           index=0 if st.session_state.lang == "eu" else 1, 
+                           horizontal=True,
+                           label_visibility="collapsed")
+    if lang_choice.lower() != st.session_state.lang:
+        st.session_state.lang = lang_choice.lower()
+        st.rerun()
+
 # --- AJUSTES DE DISEÑO CSS ---
 st.markdown(f"""
     <style>
@@ -119,8 +130,14 @@ st.markdown(f"""
             font-family: 'Poppins', sans-serif; font-weight: 500;
         }}
         
+        /* CSS original de la V1 para los bloques horizontales */
         div[data-testid="stHorizontalBlock"] div[data-testid="stRadio"] > div {{
             flex-direction: row !important; justify-content: space-between !important; gap: 2px !important;
+        }}
+
+        /* CSS ESPECÍFICO PARA HACER MÁS PEQUEÑO EL SELECTOR DE IDIOMA */
+        div[data-testid="stHorizontalBlock"]:first-of-type div[data-testid="stRadio"] p {{
+            font-size: 0.75rem !important;
         }}
 
         .resumen-filtros {{
@@ -156,17 +173,6 @@ st.markdown(f"""
         details div[data-testid="stButton"] button[kind="primary"]::after {{ content: none !important; }}
     </style>
 """, unsafe_allow_html=True)
-
-# --- SELECTOR DE IDIOMA COMPACTO (Bullets horizontales) ---
-cols_lang = st.columns([3.5, 1.5]) # Ajustado para que los botones de radio quepan bien
-with cols_lang[1]:
-    lang_choice = st.radio("Idioma", ["EU", "ES"], 
-                           index=0 if st.session_state.lang == "eu" else 1, 
-                           horizontal=True,
-                           label_visibility="collapsed")
-    if lang_choice.lower() != st.session_state.lang:
-        st.session_state.lang = lang_choice.lower()
-        st.rerun()
 
 # Recuperar caché persistente
 muni_cache = streamlit_js_eval(js_expressions="parent.window.localStorage.getItem('muni_gasolineras')", key="get_muni_cache")
