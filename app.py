@@ -117,10 +117,20 @@ st.markdown(f"""
             display: flex !important; align-items: center !important;
         }}
         
+        /* Ajuste fino del espacio y tamaño del selector de idioma */
+        div[data-testid="stHorizontalBlock"]:first-of-type {{
+            margin-bottom: -1.5rem !important; 
+            z-index: 10;
+        }}
+        div[data-testid="stHorizontalBlock"]:first-of-type div[data-testid="stRadio"] p {{
+            font-size: 0.75rem !important;
+        }}
+        
         .titulo-app {{
             text-align: center; font-family: 'Poppins', sans-serif;
             font-size: clamp(32px, 9vw, 46px); font-weight: 800;
             color: #1e293b; letter-spacing: -1.5px; margin-bottom: 0.5rem;
+            margin-top: 0px !important;
         }}
         .titulo-app span {{ color: #ef4444; }}
         
@@ -130,14 +140,8 @@ st.markdown(f"""
             font-family: 'Poppins', sans-serif; font-weight: 500;
         }}
         
-        /* CSS original de la V1 para los bloques horizontales */
         div[data-testid="stHorizontalBlock"] div[data-testid="stRadio"] > div {{
             flex-direction: row !important; justify-content: space-between !important; gap: 2px !important;
-        }}
-
-        /* CSS ESPECÍFICO PARA HACER MÁS PEQUEÑO EL SELECTOR DE IDIOMA */
-        div[data-testid="stHorizontalBlock"]:first-of-type div[data-testid="stRadio"] p {{
-            font-size: 0.75rem !important;
         }}
 
         .resumen-filtros {{
@@ -174,10 +178,15 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-# Recuperar caché persistente
+# --- RECUPERAR MEMORIA ---
 muni_cache = streamlit_js_eval(js_expressions="parent.window.localStorage.getItem('muni_gasolineras')", key="get_muni_cache")
 if muni_cache and muni_cache != "null" and not st.session_state.municipio_guardado:
     st.session_state.municipio_guardado = muni_cache
+
+# --- GUARDADO SILENCIOSO Y ROBUSTO EN MEMORIA ---
+# Esto garantiza que nunca se pierda el dato entre recargas o pulsaciones de botones
+if st.session_state.municipio_guardado:
+    components.html(f"<script>window.parent.localStorage.setItem('muni_gasolineras', '{st.session_state.municipio_guardado}');</script>", height=0)
 
 @st.cache_data(ttl=3600)
 def cargar_datos():
@@ -236,7 +245,7 @@ if not lat_gps and not st.session_state.municipio_guardado:
     if st.button(t['btn_confirmar'], type="primary", use_container_width=True):
         if muni_sel:
             st.session_state.municipio_guardado = muni_sel
-            streamlit_js_eval(js_expressions=f"parent.window.localStorage.setItem('muni_gasolineras', '{muni_sel}')")
+            # El guardado robusto del inicio de la app se encarga de guardar esto en LocalStorage.
             st.session_state.override_manual = True; st.rerun()
     st.stop()
 
