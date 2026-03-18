@@ -55,6 +55,7 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
     a = np.sin(dlat / 2)**2 + np.cos(np.radians(lat1)) * np.cos(np.radians(lat2)) * np.sin(dlon / 2)**2
     return R * 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
 
+# FUNCIÓN PARA CERRAR EL TECLADO (FORZADO PARA MÓVILES)
 def cerrar_teclado_movil():
     components.html(
         """
@@ -79,7 +80,7 @@ class SSLAdapter(HTTPAdapter):
 # 1. Configuración de la página
 st.set_page_config(page_title="gasolina.eus", page_icon="⛽", layout="centered")
 
-# --- INICIALIZACIÓN DE ESTADOS ---
+# --- INICIALIZACIÓN ---
 if 'lang' not in st.session_state: st.session_state.lang = "eu"
 if 'solicitar_gps' not in st.session_state: st.session_state.solicitar_gps = False
 if 'municipio_guardado' not in st.session_state: st.session_state.municipio_guardado = None
@@ -91,15 +92,13 @@ if 'ajustes_abiertos' not in st.session_state: st.session_state.ajustes_abiertos
 
 t = TRAD[st.session_state.lang]
 
-# --- SELECTOR DE IDIOMA (Muy pequeño, arriba del todo) ---
-cols_lang = st.columns([4, 1.2]) 
-with cols_lang[1]:
-    lang_choice = st.selectbox("Idioma", ["EU", "ES"], index=0 if st.session_state.lang == "eu" else 1, label_visibility="collapsed")
-    if lang_choice.lower() != st.session_state.lang:
-        st.session_state.lang = lang_choice.lower()
-        st.rerun()
+# --- SELECTOR DE IDIOMA (SIN COLUMNAS, DIRECTO AL DOM) ---
+lang_sel = st.radio("Idioma", ["EU", "ES"], index=0 if st.session_state.lang == "eu" else 1, horizontal=True, label_visibility="collapsed")
+if lang_sel.lower() != st.session_state.lang:
+    st.session_state.lang = lang_sel.lower()
+    st.rerun()
 
-# --- AJUSTES DE DISEÑO CSS (INTACTO V1 + EXCEPCIÓN IDIOMA) ---
+# --- AJUSTES DE DISEÑO CSS ---
 st.markdown(f"""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;800&display=swap');
@@ -108,20 +107,29 @@ st.markdown(f"""
         iframe {{ display: none !important; height: 0px !important; }}
         .element-container:has(iframe) {{ display: none !important; }}
         
-        /* CSS V1 original para desplegables grandes (Municipios) */
+        /* MAGIA CSS: Sacamos el contenedor del idioma del flujo para que ocupe 0 espacio vertical */
+        .element-container:has(div[role="radiogroup"][aria-label="Idioma"]) {{
+            position: absolute !important;
+            top: 15px !important;
+            right: 15px !important;
+            z-index: 9999 !important;
+            width: auto !important;
+        }}
+        /* Hacemos los bullets más pequeños y juntos */
+        div[role="radiogroup"][aria-label="Idioma"] {{
+            gap: 10px !important;
+        }}
+        div[role="radiogroup"][aria-label="Idioma"] p {{
+            font-size: 0.8rem !important;
+            font-weight: 800 !important;
+        }}
+
+        /* --- TODO LO DE ABAJO ES TU V1 EXACTA --- */
         div[data-baseweb="select"] > div {{
             padding: 4px 12px !important; min-height: 54px !important;
             border-radius: 12px !important; font-size: 1.15rem !important; 
             border: 1px solid #e2e8f0 !important; background-color: white !important;
             display: flex !important; align-items: center !important;
-        }}
-        
-        /* EXCEPCIÓN: Reducir tamaño SOLO del desplegable de idioma (ubicado dentro de una columna) */
-        div[data-testid="stColumn"] div[data-baseweb="select"] > div {{
-            min-height: 36px !important;
-            font-size: 0.9rem !important;
-            padding: 0px 8px !important;
-            border-radius: 8px !important;
         }}
         
         .titulo-app {{
