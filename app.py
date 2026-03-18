@@ -11,13 +11,13 @@ import streamlit.components.v1 as components
 # --- DICCIONARIO DE TRADUCCIONES ---
 TRAD = {
     "eu": {
-        "subtitulo": "Konparatu prezioak denbora errealean eta aurreztu depositua betetzean.",
+        "subtitulo": "Konparatu prezioak eta aurreztu depositua betetzean.",
         "btn_inicio": "📍 Erakutsi gasolindegiak",
-        "btn_inicio_sub": "Gomendagarria da kokapena erabiltzea bilatzeko",
+        "btn_inicio_sub": "Gomendagarria da kokapena onartzea bilatzeko",
         "localizando": "⏳ Kokapena bilatzen...",
         "escribe_muni": "📍 Idatzi zure udalerria:",
         "placeholder": "Bilatu...",
-        "btn_confirmar": "✅ Berretsi hautaketa",
+        "btn_confirmar": "🔍 Bilatu",
         "ajustes_tit": "⚙️ Bilaketa ezarpenak",
         "cambiar_muni": "Aldatu udalerria:",
         "radio": "Bilaketa-erradioa:",
