@@ -55,7 +55,6 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
     a = np.sin(dlat / 2)**2 + np.cos(np.radians(lat1)) * np.cos(np.radians(lat2)) * np.sin(dlon / 2)**2
     return R * 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
 
-# FUNCIÓN PARA CERRAR EL TECLADO (FORZADO PARA MÓVILES)
 def cerrar_teclado_movil():
     components.html(
         """
@@ -80,7 +79,7 @@ class SSLAdapter(HTTPAdapter):
 # 1. Configuración de la página
 st.set_page_config(page_title="gasolina.eus", page_icon="⛽", layout="centered")
 
-# --- INICIALIZACIÓN ---
+# --- INICIALIZACIÓN DE ESTADOS ---
 if 'lang' not in st.session_state: st.session_state.lang = "eu"
 if 'solicitar_gps' not in st.session_state: st.session_state.solicitar_gps = False
 if 'municipio_guardado' not in st.session_state: st.session_state.municipio_guardado = None
@@ -90,46 +89,26 @@ if 'radio_km' not in st.session_state: st.session_state.radio_km = 5
 if 'tipo_combustible' not in st.session_state: st.session_state.tipo_combustible = "Diésel"
 if 'ajustes_abiertos' not in st.session_state: st.session_state.ajustes_abiertos = False
 
-# --- SELECTOR DE IDIOMA ---
-# Se define primero para que las reglas CSS recaigan sobre él de forma absoluta
-lang_sel = st.selectbox("Idioma", ["EU", "ES"], index=0 if st.session_state.lang == "eu" else 1, label_visibility="collapsed")
-if lang_sel.lower() != st.session_state.lang:
-    st.session_state.lang = lang_sel.lower()
-    st.rerun()
-
 t = TRAD[st.session_state.lang]
 
-# --- AJUSTES DE DISEÑO CSS ---
+# --- SELECTOR DE IDIOMA (Muy pequeño, arriba del todo) ---
+cols_lang = st.columns([4, 1.2]) 
+with cols_lang[1]:
+    lang_choice = st.selectbox("Idioma", ["EU", "ES"], index=0 if st.session_state.lang == "eu" else 1, label_visibility="collapsed")
+    if lang_choice.lower() != st.session_state.lang:
+        st.session_state.lang = lang_choice.lower()
+        st.rerun()
+
+# --- AJUSTES DE DISEÑO CSS (INTACTO V1 + EXCEPCIÓN IDIOMA) ---
 st.markdown(f"""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;800&display=swap');
-        .block-container {{ padding-top: 1rem !important; padding-bottom: 25vh !important; position: relative; }}
+        .block-container {{ padding-top: 1rem !important; padding-bottom: 25vh !important; }}
         header {{visibility: hidden !important;}}
         iframe {{ display: none !important; height: 0px !important; }}
         .element-container:has(iframe) {{ display: none !important; }}
         
-        /* ---------------------------------------------------- */
-        /* MAGIA PARA EL SELECTOR DE IDIOMA (Solución al teclado) */
-        /* 1. Lo sacamos del flujo de la página y lo flotamos a la derecha */
-        div[data-testid="stSelectbox"]:first-of-type {{
-            position: absolute !important;
-            top: 0.5rem !important;
-            right: 1rem !important;
-            width: 75px !important;
-            z-index: 9999 !important;
-        }}
-        /* 2. Hacemos que la caja de ese selector específico sea muy compacta */
-        div[data-testid="stSelectbox"]:first-of-type div[data-baseweb="select"] > div {{
-            min-height: 32px !important;
-            height: 32px !important;
-            padding: 0px 8px !important;
-            font-size: 0.85rem !important;
-            border-radius: 8px !important;
-            background-color: transparent !important;
-        }}
-        /* ---------------------------------------------------- */
-
-        /* CSS ORIGINAL DE LA V1 (INTACTO) */
+        /* CSS V1 original para desplegables grandes (Municipios) */
         div[data-baseweb="select"] > div {{
             padding: 4px 12px !important; min-height: 54px !important;
             border-radius: 12px !important; font-size: 1.15rem !important; 
@@ -137,11 +116,18 @@ st.markdown(f"""
             display: flex !important; align-items: center !important;
         }}
         
+        /* EXCEPCIÓN: Reducir tamaño SOLO del desplegable de idioma (ubicado dentro de una columna) */
+        div[data-testid="stColumn"] div[data-baseweb="select"] > div {{
+            min-height: 36px !important;
+            font-size: 0.9rem !important;
+            padding: 0px 8px !important;
+            border-radius: 8px !important;
+        }}
+        
         .titulo-app {{
             text-align: center; font-family: 'Poppins', sans-serif;
             font-size: clamp(32px, 9vw, 46px); font-weight: 800;
             color: #1e293b; letter-spacing: -1.5px; margin-bottom: 0.5rem;
-            margin-top: 1.5rem;
         }}
         .titulo-app span {{ color: #ef4444; }}
         
@@ -189,7 +175,7 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-# Recuperar caché persistente (V1 Intacto)
+# Recuperar caché persistente
 muni_cache = streamlit_js_eval(js_expressions="parent.window.localStorage.getItem('muni_gasolineras')", key="get_muni_cache")
 if muni_cache and muni_cache != "null" and not st.session_state.municipio_guardado:
     st.session_state.municipio_guardado = muni_cache
