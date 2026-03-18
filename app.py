@@ -11,13 +11,13 @@ import streamlit.components.v1 as components
 # --- DICCIONARIO DE TRADUCCIONES ---
 TRAD = {
     "eu": {
-        "subtitulo": "Konparatu prezioak eta aurreztu depositua betetzean.",
-        "btn_inicio": "📍 Erakutsi gasolindegiak",
-        "btn_inicio_sub": "Gomendagarria da kokapena onartzea bilatzeko",
+        "subtitulo": "Konparatu prezioak denbora errealean eta aurreztu depositua betetzean.",
+        "btn_inicio": "📍 Erakutsi gasolinstegiak",
+        "btn_inicio_sub": "Gomendagarria da kokapena erabiltzea bilatzeko",
         "localizando": "⏳ Kokapena bilatzen...",
         "escribe_muni": "📍 Idatzi zure udalerria:",
         "placeholder_muni": "Bilatu...",
-        "confirmar": "✅ Bilatu",
+        "confirmar": "✅ Berretsi hautaketa",
         "ajustes_t": "⚙️ Bilaketa ezarpenak",
         "cambiar_muni": "Aldatu udalerria:",
         "radio": "Bilaketa-erradioa:",
@@ -76,9 +76,8 @@ if 'gps_fallido' not in st.session_state: st.session_state.gps_fallido = False
 if 'override_manual' not in st.session_state: st.session_state.override_manual = False
 if 'radio_km' not in st.session_state: st.session_state.radio_km = 5
 if 'tipo_combustible' not in st.session_state: st.session_state.tipo_combustible = "Diésel"
-if 'ajustes_abiertos' not in st.session_state: st.session_state.ajustes_abiertos = False
 
-# --- CSS ADAPTADO ---
+# --- CSS REFINADO (SOLO PARA BOTÓN DE INICIO) ---
 st.markdown(f"""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;800&display=swap');
@@ -99,17 +98,21 @@ st.markdown(f"""
             font-family: 'Poppins', sans-serif; font-weight: 500;
         }}
         
-        div[data-testid="stButton"] button[kind="primary"] {{
+        /* BOTÓN ROJO GRANDE SOLO PARA PANTALLA DE INICIO */
+        div.stButton > button[kind="primary"]:not(details button) {{
             min-height: 100px !important; border-radius: 15px !important;
             font-weight: bold !important; width: 100% !important;
             display: flex !important; flex-direction: column !important;
             align-items: center !important; justify-content: center !important;
+            box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25) !important;
         }}
-        div[data-testid="stButton"] button[kind="primary"]::after {{
+        div.stButton > button[kind="primary"]:not(details button) p {{ font-size: 1.4rem !important; margin: 0 !important; }}
+        div.stButton > button[kind="primary"]:not(details button)::after {{
             content: "{TRAD[st.session_state.lang]['btn_inicio_sub']}";
             font-size: 0.85rem !important; font-weight: normal !important;
             opacity: 0.9; display: block; margin-top: 8px;
         }}
+
         .resumen-filtros {{
             text-align: center; font-size: 0.95rem; margin-bottom: 1.5rem; 
             padding: 12px 20px; border-radius: 40px; border: 1px solid #e2e8f0;
@@ -118,17 +121,18 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-# --- SELECTOR DE IDIOMA (EVIDENTE) ---
+# Selector de idioma
 cols_lang = st.columns([4, 1])
 with cols_lang[1]:
     lang_choice = st.selectbox("Hizkuntza", ["EU", "ES"], 
                                index=0 if st.session_state.lang == "eu" else 1, 
                                label_visibility="collapsed")
-    st.session_state.lang = lang_choice.lower()
+    if lang_choice.lower() != st.session_state.lang:
+        st.session_state.lang = lang_choice.lower()
+        st.rerun()
 
 t = TRAD[st.session_state.lang]
 
-# --- DATOS ---
 @st.cache_data(ttl=3600)
 def cargar_datos():
     url = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/"
@@ -149,10 +153,11 @@ df["Precio_Diesel"] = pd.to_numeric(df["Precio Gasoleo A"].str.replace(",", ".")
 df["Precio_G95"] = pd.to_numeric(df["Precio Gasolina 95 E5"].str.replace(",", "."), errors='coerce')
 municipios_unicos = sorted(list(set([str(g["Municipio"]) for g in datos])))
 
-# --- PANTALLA 1: INICIO ---
+# Lógica GPS
 js_permiso = "navigator.permissions ? navigator.permissions.query({name: 'geolocation'}).then(res => res.state) : 'prompt'"
 estado_permiso = streamlit_js_eval(js_expressions=js_permiso, key="permiso_gps")
 
+# PANTALLA 1
 if not (estado_permiso == "granted" or st.session_state.municipio_guardado) and not st.session_state.solicitar_gps:
     st.markdown("<div class='titulo-app'>gasolina<span>.eus</span></div>", unsafe_allow_html=True)
     st.markdown(f"<p class='subtitulo-app'>{t['subtitulo']}</p>", unsafe_allow_html=True)
@@ -160,7 +165,6 @@ if not (estado_permiso == "granted" or st.session_state.municipio_guardado) and 
         st.session_state.solicitar_gps = True; st.rerun()
     st.stop()
 
-# GPS
 loc = None; lat_gps, lon_gps = None, None
 if (estado_permiso == "granted" or st.session_state.solicitar_gps) and not (st.session_state.gps_fallido or st.session_state.municipio_guardado or st.session_state.override_manual):
     loc = get_geolocation()
@@ -172,7 +176,7 @@ if (estado_permiso == "granted" or st.session_state.solicitar_gps) and not (st.s
     else:
         st.session_state.gps_fallido = True; st.rerun()
 
-# --- PANTALLA 2: SELECCIÓN MANUAL ---
+# PANTALLA 2
 if not lat_gps and not st.session_state.municipio_guardado:
     st.markdown("<div class='titulo-app'>gasolina<span>.eus</span></div>", unsafe_allow_html=True)
     st.markdown(f"<p style='text-align: center; color: #64748b;'>{t['escribe_muni']}</p>", unsafe_allow_html=True)
@@ -184,7 +188,7 @@ if not lat_gps and not st.session_state.municipio_guardado:
             st.session_state.override_manual = True; st.rerun()
     st.stop()
 
-# --- PANTALLA 3: RESULTADOS ---
+# PANTALLA 3
 st.markdown("<div class='titulo-app'>gasolina<span>.eus</span></div>", unsafe_allow_html=True)
 
 if lat_gps and not st.session_state.override_manual:
@@ -196,18 +200,17 @@ else:
     fila = df[df["Municipio"] == muni_ref].iloc[0]
     lat_ref, lon_ref = fila["lat_num"], fila["lon_num"]
 
-with st.expander(t["ajustes_t"], expanded=st.session_state.ajustes_abiertos):
-    st.session_state.ajustes_abiertos = True
+with st.expander(t["ajustes_t"], expanded=False):
     nuevo_muni = st.selectbox(t["cambiar_muni"], options=municipios_unicos, index=municipios_unicos.index(muni_ref) if muni_ref in municipios_unicos else None)
     if nuevo_muni != muni_ref: cerrar_teclado_movil()
     nuevo_radio = st.radio(t["radio"], [5, 10, 20], index=[5, 10, 20].index(st.session_state.radio_km), format_func=lambda x: f"{x} km", horizontal=True)
     nuevo_tipo = st.radio(t["ordenar"], ["Diésel", "G95"], index=0 if st.session_state.tipo_combustible == "Diésel" else 1, horizontal=True)
-    if st.button(t["buscar"], use_container_width=True, type="primary"):
+    # ESTE BOTÓN AHORA ES ESTÁNDAR (Gris/Normal)
+    if st.button(t["buscar"], use_container_width=True):
         st.session_state.municipio_guardado = nuevo_muni
         st.session_state.radio_km = nuevo_radio
         st.session_state.tipo_combustible = nuevo_tipo
-        st.session_state.override_manual = True
-        st.session_state.ajustes_abiertos = False; st.rerun()
+        st.session_state.override_manual = True; st.rerun()
 
 col_orden = "Precio_Diesel" if st.session_state.tipo_combustible == "Diésel" else "Precio_G95"
 df["Distancia"] = calcular_distancia(lat_ref, lon_ref, df["lat_num"], df["lon_num"])
