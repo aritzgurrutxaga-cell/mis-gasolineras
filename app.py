@@ -96,14 +96,13 @@ if muni_cache and muni_cache != "null" and not st.session_state.municipio_guarda
     st.session_state.municipio_guardado = muni_cache
 
 # --- GUARDADO INFALIBLE EN MEMORIA ---
-# Este bloque garantiza que el navegador siempre guarde el municipio, pase lo que pase con los botones.
 if st.session_state.municipio_guardado:
     components.html(
         f"<script>window.parent.localStorage.setItem('muni_gasolineras', '{st.session_state.municipio_guardado}');</script>",
         height=0
     )
 
-# --- SELECTOR DE IDIOMA (CON CORRECCIÓN DE DESPLIEGUE) ---
+# --- SELECTOR DE IDIOMA ---
 lang_sel = st.radio("Idioma", ["EU", "ES"], index=0 if st.session_state.lang == "eu" else 1, horizontal=True, label_visibility="collapsed")
 if lang_sel.lower() != st.session_state.lang:
     st.session_state.lang = lang_sel.lower()
@@ -137,7 +136,7 @@ st.markdown(f"""
             font-weight: 800 !important;
         }}
 
-        /* --- CSS V1 ORIGINAL A PARTIR DE AQUÍ --- */
+        /* --- CSS V1 ORIGINAL --- */
         div[data-baseweb="select"] > div {{
             padding: 4px 12px !important; min-height: 54px !important;
             border-radius: 12px !important; font-size: 1.15rem !important; 
@@ -270,7 +269,6 @@ else:
     lat_ref, lon_ref = fila["lat_num"], fila["lon_num"]
 
 with st.expander(t['ajustes_tit'], expanded=st.session_state.ajustes_abiertos):
-    st.session_state.ajustes_abiertos = True
     
     nuevo_muni = st.selectbox(t['cambiar_muni'], options=municipios_unicos, 
                               index=municipios_unicos.index(muni_ref) if muni_ref in municipios_unicos else None)
