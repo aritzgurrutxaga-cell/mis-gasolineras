@@ -80,84 +80,8 @@ class SSLAdapter(HTTPAdapter):
 # 1. Configuración de la página
 st.set_page_config(page_title="gasolina.eus", page_icon="⛽", layout="centered")
 
-# --- AJUSTES DE DISEÑO CSS (INTACTO V1 + REGLA PARA SELECTOR IDIOMA) ---
-st.markdown("""
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;800&display=swap');
-        .block-container { padding-top: 1rem !important; padding-bottom: 25vh !important; }
-        header {visibility: hidden !important;}
-        iframe { display: none !important; height: 0px !important; }
-        .element-container:has(iframe) { display: none !important; }
-        
-        /* CSS original V1 para el selectbox gigante de municipios */
-        div[data-baseweb="select"] > div {
-            padding: 4px 12px !important; min-height: 54px !important;
-            border-radius: 12px !important; font-size: 1.15rem !important; 
-            border: 1px solid #e2e8f0 !important; background-color: white !important;
-            display: flex !important; align-items: center !important;
-        }
-        
-        /* NUEVO: Forzar que el PRIMER selectbox (el de idioma) sea muy pequeño */
-        div[data-testid="stSelectbox"]:first-of-type div[data-baseweb="select"] > div {
-            min-height: 32px !important;
-            padding: 0px 8px !important;
-            font-size: 0.85rem !important;
-            border-radius: 8px !important;
-        }
-        
-        .titulo-app {
-            text-align: center; font-family: 'Poppins', sans-serif;
-            font-size: clamp(32px, 9vw, 46px); font-weight: 800;
-            color: #1e293b; letter-spacing: -1.5px; margin-bottom: 0.5rem;
-        }
-        .titulo-app span { color: #ef4444; }
-        
-        .subtitulo-app {
-            text-align: center; color: #64748b; font-size: 1.05rem; 
-            margin-bottom: 2rem; margin-top: -0.5rem;
-            font-family: 'Poppins', sans-serif; font-weight: 500;
-        }
-        
-        div[data-testid="stHorizontalBlock"] div[data-testid="stRadio"] > div {
-            flex-direction: row !important; justify-content: space-between !important; gap: 2px !important;
-        }
-
-        .resumen-filtros {
-            text-align: center; font-size: 0.95rem; margin-bottom: 1.5rem; 
-            padding: 12px 20px; border-radius: 40px; border: 1px solid #e2e8f0;
-            background-color: #ffffff; color: #334155;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
-            font-family: 'Poppins', sans-serif; font-weight: 500;
-        }
-
-        div[data-testid="stVerticalBlockBorderWrapper"] > div {
-            background-color: #ffffff !important; border: 1px solid #f1f5f9 !important;
-            border-radius: 16px !important; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04) !important;
-            padding: 0.8rem !important; margin-bottom: 0.5rem !important;
-        }
-
-        div[data-testid="stButton"] button[kind="primary"] {
-            min-height: 100px !important; border-radius: 15px !important;
-            font-weight: bold !important; width: 100% !important;
-            display: flex !important; flex-direction: column !important;
-            align-items: center !important; justify-content: center !important;
-            box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25) !important;
-        }
-        div[data-testid="stButton"] button[kind="primary"] p { font-size: 1.4rem !important; margin: 0 !important; }
-        div[data-testid="stButton"] button[kind="primary"]::after {
-            content: "Es recomendable la ubicación para buscar"; /* Se sobreescribe abajo dinámicamente */
-            font-size: 0.85rem !important; font-weight: normal !important;
-            opacity: 0.9; display: block; margin-top: 8px;
-        }
-        details div[data-testid="stButton"] button[kind="primary"] {
-            min-height: 48px !important; padding: 0.5rem 1rem !important; box-shadow: none !important;
-        }
-        details div[data-testid="stButton"] button[kind="primary"]::after { content: none !important; }
-    </style>
-""", unsafe_allow_html=True)
-
 # --- INICIALIZACIÓN ---
-if 'lang' not in st.session_state: st.session_state.lang = "eu" # EU por defecto
+if 'lang' not in st.session_state: st.session_state.lang = "eu"
 if 'solicitar_gps' not in st.session_state: st.session_state.solicitar_gps = False
 if 'municipio_guardado' not in st.session_state: st.session_state.municipio_guardado = None
 if 'gps_fallido' not in st.session_state: st.session_state.gps_fallido = False
@@ -166,24 +90,106 @@ if 'radio_km' not in st.session_state: st.session_state.radio_km = 5
 if 'tipo_combustible' not in st.session_state: st.session_state.tipo_combustible = "Diésel"
 if 'ajustes_abiertos' not in st.session_state: st.session_state.ajustes_abiertos = False
 
-# --- SELECTOR DE IDIOMA ARRIBA DEL TODO ---
-col_vacia, col_idioma = st.columns([4, 1.2])
-with col_idioma:
-    lang_sel = st.selectbox("Idioma", ["EU", "ES"], index=0 if st.session_state.lang == "eu" else 1, label_visibility="collapsed")
-    if lang_sel.lower() != st.session_state.lang:
-        st.session_state.lang = lang_sel.lower()
-        st.rerun()
+# --- SELECTOR DE IDIOMA ---
+# Se define primero para que las reglas CSS recaigan sobre él de forma absoluta
+lang_sel = st.selectbox("Idioma", ["EU", "ES"], index=0 if st.session_state.lang == "eu" else 1, label_visibility="collapsed")
+if lang_sel.lower() != st.session_state.lang:
+    st.session_state.lang = lang_sel.lower()
+    st.rerun()
 
 t = TRAD[st.session_state.lang]
 
-# Sobreescribimos el ::after del CSS dinámicamente con el idioma elegido
+# --- AJUSTES DE DISEÑO CSS ---
 st.markdown(f"""
     <style>
-    div[data-testid="stButton"] button[kind="primary"]::after {{ content: "{t['btn_sub']}" !important; }}
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;800&display=swap');
+        .block-container {{ padding-top: 1rem !important; padding-bottom: 25vh !important; position: relative; }}
+        header {{visibility: hidden !important;}}
+        iframe {{ display: none !important; height: 0px !important; }}
+        .element-container:has(iframe) {{ display: none !important; }}
+        
+        /* ---------------------------------------------------- */
+        /* MAGIA PARA EL SELECTOR DE IDIOMA (Solución al teclado) */
+        /* 1. Lo sacamos del flujo de la página y lo flotamos a la derecha */
+        div[data-testid="stSelectbox"]:first-of-type {{
+            position: absolute !important;
+            top: 0.5rem !important;
+            right: 1rem !important;
+            width: 75px !important;
+            z-index: 9999 !important;
+        }}
+        /* 2. Hacemos que la caja de ese selector específico sea muy compacta */
+        div[data-testid="stSelectbox"]:first-of-type div[data-baseweb="select"] > div {{
+            min-height: 32px !important;
+            height: 32px !important;
+            padding: 0px 8px !important;
+            font-size: 0.85rem !important;
+            border-radius: 8px !important;
+            background-color: transparent !important;
+        }}
+        /* ---------------------------------------------------- */
+
+        /* CSS ORIGINAL DE LA V1 (INTACTO) */
+        div[data-baseweb="select"] > div {{
+            padding: 4px 12px !important; min-height: 54px !important;
+            border-radius: 12px !important; font-size: 1.15rem !important; 
+            border: 1px solid #e2e8f0 !important; background-color: white !important;
+            display: flex !important; align-items: center !important;
+        }}
+        
+        .titulo-app {{
+            text-align: center; font-family: 'Poppins', sans-serif;
+            font-size: clamp(32px, 9vw, 46px); font-weight: 800;
+            color: #1e293b; letter-spacing: -1.5px; margin-bottom: 0.5rem;
+            margin-top: 1.5rem;
+        }}
+        .titulo-app span {{ color: #ef4444; }}
+        
+        .subtitulo-app {{
+            text-align: center; color: #64748b; font-size: 1.05rem; 
+            margin-bottom: 2rem; margin-top: -0.5rem;
+            font-family: 'Poppins', sans-serif; font-weight: 500;
+        }}
+        
+        div[data-testid="stHorizontalBlock"] div[data-testid="stRadio"] > div {{
+            flex-direction: row !important; justify-content: space-between !important; gap: 2px !important;
+        }}
+
+        .resumen-filtros {{
+            text-align: center; font-size: 0.95rem; margin-bottom: 1.5rem; 
+            padding: 12px 20px; border-radius: 40px; border: 1px solid #e2e8f0;
+            background-color: #ffffff; color: #334155;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+            font-family: 'Poppins', sans-serif; font-weight: 500;
+        }}
+
+        div[data-testid="stVerticalBlockBorderWrapper"] > div {{
+            background-color: #ffffff !important; border: 1px solid #f1f5f9 !important;
+            border-radius: 16px !important; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04) !important;
+            padding: 0.8rem !important; margin-bottom: 0.5rem !important;
+        }}
+
+        div[data-testid="stButton"] button[kind="primary"] {{
+            min-height: 100px !important; border-radius: 15px !important;
+            font-weight: bold !important; width: 100% !important;
+            display: flex !important; flex-direction: column !important;
+            align-items: center !important; justify-content: center !important;
+            box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25) !important;
+        }}
+        div[data-testid="stButton"] button[kind="primary"] p {{ font-size: 1.4rem !important; margin: 0 !important; }}
+        div[data-testid="stButton"] button[kind="primary"]::after {{
+            content: "{t['btn_sub']}";
+            font-size: 0.85rem !important; font-weight: normal !important;
+            opacity: 0.9; display: block; margin-top: 8px;
+        }}
+        details div[data-testid="stButton"] button[kind="primary"] {{
+            min-height: 48px !important; padding: 0.5rem 1rem !important; box-shadow: none !important;
+        }}
+        details div[data-testid="stButton"] button[kind="primary"]::after {{ content: none !important; }}
     </style>
 """, unsafe_allow_html=True)
 
-# Recuperar caché persistente
+# Recuperar caché persistente (V1 Intacto)
 muni_cache = streamlit_js_eval(js_expressions="parent.window.localStorage.getItem('muni_gasolineras')", key="get_muni_cache")
 if muni_cache and muni_cache != "null" and not st.session_state.municipio_guardado:
     st.session_state.municipio_guardado = muni_cache
