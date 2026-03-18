@@ -81,7 +81,7 @@ if 'gps_fallido' not in st.session_state: st.session_state.gps_fallido = False
 if 'override_manual' not in st.session_state: st.session_state.override_manual = False
 if 'radio_km' not in st.session_state: st.session_state.radio_km = 5
 if 'tipo_combustible' not in st.session_state: st.session_state.tipo_combustible = "Diésel"
-if 'ajustes_abiertos' not in st.session_state: st.session_state.ajustes_abiertos = False
+if 'exp_key' not in st.session_state: st.session_state.exp_key = 0  # <--- Clave para forzar el cierre
 
 # --- LECTURA DE MEMORIA ---
 muni_cache = streamlit_js_eval(js_expressions="parent.window.localStorage.getItem('muni_gasolineras')", key="get_muni_cache")
@@ -96,7 +96,7 @@ if st.session_state.municipio_guardado:
 lang_sel = st.radio("Idioma", ["EU", "ES"], index=0 if st.session_state.lang == "eu" else 1, horizontal=True, label_visibility="collapsed")
 if lang_sel.lower() != st.session_state.lang:
     st.session_state.lang = lang_sel.lower()
-    st.session_state.ajustes_abiertos = False
+    st.session_state.exp_key = 1 - st.session_state.exp_key  # Asegura que se cierre al cambiar de idioma
     st.rerun()
 
 t = TRAD[st.session_state.lang]
@@ -198,10 +198,10 @@ else:
     fila = df[df["Municipio"] == muni_ref].iloc[0]
     lat_ref, lon_ref = fila["lat_num"], fila["lon_num"]
 
-with st.expander(t['ajustes_tit'], expanded=st.session_state.ajustes_abiertos):
-    # RESTAURADA LA LÍNEA ORIGINAL DE TU V1 QUE HACE QUE EL BOTÓN FUNCIONE
-    st.session_state.ajustes_abiertos = True
-    
+# Título con espacio de ancho cero para forzar a Streamlit a considerarlo un componente nuevo al pulsar buscar
+titulo_expander = t['ajustes_tit'] + ("\u200b" * st.session_state.exp_key)
+
+with st.expander(titulo_expander, expanded=False):
     nuevo_muni = st.selectbox(t['cambiar_muni'], options=municipios_unicos, index=municipios_unicos.index(muni_ref) if muni_ref in municipios_unicos else None)
     if nuevo_muni != muni_ref: cerrar_teclado_movil()
     nuevo_radio = st.radio(t['radio'], [5, 10, 20], index=[5, 10, 20].index(st.session_state.radio_km), horizontal=True)
@@ -212,7 +212,7 @@ with st.expander(t['ajustes_tit'], expanded=st.session_state.ajustes_abiertos):
         st.session_state.radio_km = nuevo_radio
         st.session_state.tipo_combustible = nuevo_tipo
         st.session_state.override_manual = True
-        st.session_state.ajustes_abiertos = False
+        st.session_state.exp_key = 1 - st.session_state.exp_key  # Cambia la clave invisible, forzando cierre
         st.rerun()
 
 col_orden = "Precio_Diesel" if st.session_state.tipo_combustible == "Diésel" else "Precio_G95"
