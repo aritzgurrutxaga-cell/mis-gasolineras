@@ -90,15 +90,16 @@ if 'radio_km' not in st.session_state: st.session_state.radio_km = 5
 if 'tipo_combustible' not in st.session_state: st.session_state.tipo_combustible = "Diésel"
 if 'ajustes_abiertos' not in st.session_state: st.session_state.ajustes_abiertos = False
 
-# --- LECTURA DE MEMORIA PRIORITARIA (ESTO EVITA QUE SE PIERDA EL MUNICIPIO) ---
+# --- LECTURA DE MEMORIA PRIORITARIA ---
 muni_cache = streamlit_js_eval(js_expressions="parent.window.localStorage.getItem('muni_gasolineras')", key="get_muni_cache")
 if muni_cache and muni_cache != "null" and not st.session_state.municipio_guardado:
     st.session_state.municipio_guardado = muni_cache
 
-# --- SELECTOR DE IDIOMA (AHORA SEGURO) ---
+# --- SELECTOR DE IDIOMA (CON CORRECCIÓN DE DESPLIEGUE) ---
 lang_sel = st.radio("Idioma", ["EU", "ES"], index=0 if st.session_state.lang == "eu" else 1, horizontal=True, label_visibility="collapsed")
 if lang_sel.lower() != st.session_state.lang:
     st.session_state.lang = lang_sel.lower()
+    st.session_state.ajustes_abiertos = False  # <--- FIX: Fuerza a que el menú se cierre al cambiar de idioma
     st.rerun()
 
 t = TRAD[st.session_state.lang]
