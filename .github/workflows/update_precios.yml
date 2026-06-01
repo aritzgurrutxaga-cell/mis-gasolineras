@@ -1,13 +1,15 @@
-
-name: Mantener app despierta
+name: Actualizar precios gasolineras
 
 on:
   schedule:
-    - cron: "0 */6 * * *"
+    - cron: "0 */3 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  wake:
+  update:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,12 +21,16 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Instalar Playwright
-        run: |
-          pip install playwright
-          playwright install chromium
+      - name: Instalar dependencias
+        run: pip install requests urllib3
 
-      - name: Abrir app
-        env:
-          STREAMLIT_APP_URL: "https://gasolindegi.streamlit.app/"
-        run: python wake_app.py
+      - name: Actualizar precios
+        run: python update_precios.py
+
+      - name: Guardar cambios
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add precios_gasolineras.json
+          git diff --cached --quiet || git commit -m "Actualizar precios gasolineras"
+          git push
