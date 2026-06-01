@@ -3,11 +3,11 @@ import requests
 import pandas as pd
 import numpy as np
 import datetime
+import json
 from streamlit_js_eval import get_geolocation, streamlit_js_eval
 from requests.adapters import HTTPAdapter
 from urllib3.util.ssl_ import create_urllib3_context
 import streamlit.components.v1 as components
-import json
 
 # --- DICCIONARIO DE TRADUCCIONES ---
 TRAD = {
@@ -164,7 +164,6 @@ def cargar_datos():
         return payload["datos"], datetime.datetime.fromisoformat(payload["fecha_descarga"])
     except:
         return None, None
-
 
 datos, fecha_act = cargar_datos()
 if not datos: st.error(t['error_con']); st.stop()
