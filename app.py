@@ -7,6 +7,7 @@ from streamlit_js_eval import get_geolocation, streamlit_js_eval
 from requests.adapters import HTTPAdapter
 from urllib3.util.ssl_ import create_urllib3_context
 import streamlit.components.v1 as components
+import json
 
 # --- DICCIONARIO DE TRADUCCIONES ---
 TRAD = {
