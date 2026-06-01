@@ -250,3 +250,4 @@ for _, g in res.head(20).iterrows():
             st.write(f"⛽ **Diesel:** {p_diesel} | **G95:** {p_g95}")
             st.caption(t['distancia_fmt'].format(g['Distancia']))
         with c2:
+ st.link_button(t['navegar'], f"https://www.google.com/maps/dir/?api=1&destination={g['lat_num']},{g['lon_num']}", use_container_width=True)
