@@ -58,7 +58,7 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
 
 def cerrar_teclado_movil():
     components.html(
-        """const inputs = window.parent.document.querySelectorAll('input');inputs.forEach(input => input.blur());window.parent.document.body.focus();""",
+        """<script>const inputs = window.parent.document.querySelectorAll('input');inputs.forEach(input => input.blur());window.parent.document.body.focus();</script>""",
         height=0,
     )
 
@@ -102,7 +102,7 @@ if st.session_state.municipio_guardado:
     window.parent.localStorage.setItem('muni_gasolineras', '{st.session_state.municipio_guardado}');
     window.parent.localStorage.setItem('comb_gasolineras', '{st.session_state.tipo_combustible}');
     """
-    components.html(f"{js_save}", height=0)
+    components.html(f"<script>{js_save}</script>", height=0)
 
 # --- SELECTOR DE IDIOMA ---
 def cambiar_idioma():
@@ -118,10 +118,8 @@ st.radio("Idioma", ["EU", "ES"],
 t = TRAD[st.session_state.lang]
 
 # --- AJUSTES DE DISEÑO CSS ---
-
 st.markdown(f"""
-<style>
-    
+    <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;800&display=swap');
         .block-container {{ padding-top: 1rem !important; padding-bottom: 25vh !important; }}
         header {{visibility: hidden !important;}}
@@ -155,11 +153,8 @@ st.markdown(f"""
         div[data-testid="stButton"] button[kind="primary"]::after {{ content: "{t['btn_inicio_sub']}"; font-size: 0.85rem !important; font-weight: normal !important; opacity: 0.9; display: block; margin-top: 8px; }}
         details div[data-testid="stButton"] button[kind="primary"] {{ min-height: 48px !important; padding: 0.5rem 1rem !important; box-shadow: none !important; }}
         details div[data-testid="stButton"] button[kind="primary"]::after {{ content: none !important; }}
-    
-</style>
+    </style>
 """, unsafe_allow_html=True)
-
-
 
 @st.cache_data(ttl=3600)
 def cargar_datos():
@@ -167,10 +162,8 @@ def cargar_datos():
         with open("precios_gasolineras.json", "r", encoding="utf-8") as f:
             payload = json.load(f)
         return payload["datos"], datetime.datetime.fromisoformat(payload["fecha_descarga"])
-    except Exception as e:
-        st.error(f"Error leyendo precios_gasolineras.json: {e}")
+    except:
         return None, None
-
 
 datos, fecha_act = cargar_datos()
 if not datos: st.error(t['error_con']); st.stop()
@@ -187,8 +180,8 @@ estado_permiso = streamlit_js_eval(js_expressions=js_permiso, key="permiso_gps")
 
 # --- NAVEGACIÓN ---
 if not (estado_permiso == "granted" or st.session_state.municipio_guardado) and not st.session_state.solicitar_gps:
-    st.markdown("gasolina.eus", unsafe_allow_html=True)
-    st.markdown(f"{t['subtitulo']}", unsafe_allow_html=True)
+    st.markdown("<div class='titulo-app'>gasolina<span>.eus</span></div>", unsafe_allow_html=True)
+    st.markdown(f"<p class='subtitulo-app'>{t['subtitulo']}</p>", unsafe_allow_html=True)
     if st.button(t['btn_inicio'], use_container_width=True, type="primary"):
         st.session_state.solicitar_gps = True; st.rerun()
     st.stop()
@@ -198,14 +191,14 @@ loc = None; lat_gps, lon_gps = None, None
 if (estado_permiso == "granted" or st.session_state.solicitar_gps) and not (st.session_state.gps_fallido or st.session_state.override_manual):
     loc = get_geolocation()
     if loc is None:
-        st.markdown("gasolina.eus", unsafe_allow_html=True)
+        st.markdown("<div class='titulo-app'>gasolina<span>.eus</span></div>", unsafe_allow_html=True)
         st.info(t['localizando']); st.stop()
     elif 'coords' in loc: lat_gps, lon_gps = loc['coords']['latitude'], loc['coords']['longitude']
     else: st.session_state.gps_fallido = True; st.rerun()
 
 if not lat_gps and not st.session_state.municipio_guardado:
-    st.markdown("gasolina.eus", unsafe_allow_html=True)
-    st.markdown(f"{t['escribe_muni']}", unsafe_allow_html=True)
+    st.markdown("<div class='titulo-app'>gasolina<span>.eus</span></div>", unsafe_allow_html=True)
+    st.markdown(f"<p style='text-align: center; color: #64748b;'>{t['escribe_muni']}</p>", unsafe_allow_html=True)
     muni_sel = st.selectbox(t['label_muni'], options=municipios_unicos, index=None, placeholder=t['placeholder'], label_visibility="collapsed")
     if muni_sel: cerrar_teclado_movil()
     if st.button(t['btn_confirmar'], type="primary", use_container_width=True):
@@ -213,7 +206,7 @@ if not lat_gps and not st.session_state.municipio_guardado:
     st.stop()
 
 # --- RESULTADOS ---
-st.markdown("gasolina.eus", unsafe_allow_html=True)
+st.markdown("<div class='titulo-app'>gasolina<span>.eus</span></div>", unsafe_allow_html=True)
 
 if lat_gps and not st.session_state.override_manual:
     lat_ref, lon_ref = lat_gps, lon_gps
@@ -245,7 +238,7 @@ col_orden = "Precio_Diesel" if st.session_state.tipo_combustible == "Diésel" el
 df["Distancia"] = calcular_distancia(lat_ref, lon_ref, df["lat_num"], df["lon_num"])
 res = df[df["Distancia"] <= st.session_state.radio_km].sort_values(col_orden, na_position='last')
 
-st.markdown(f"📍 <b>{muni_ref}</b> | 🚗 <b>{st.session_state.radio_km} km</b> | ⛽ <b>{st.session_state.tipo_combustible}</b>", unsafe_allow_html=True)
+st.markdown(f"<div class='resumen-filtros'>📍 <b>{muni_ref}</b> | 🚗 <b>{st.session_state.radio_km} km</b> | ⛽ <b>{st.session_state.tipo_combustible}</b></div>", unsafe_allow_html=True)
 
 for _, g in res.head(20).iterrows():
     with st.container(border=True):
@@ -257,4 +250,3 @@ for _, g in res.head(20).iterrows():
             st.write(f"⛽ **Diesel:** {p_diesel} | **G95:** {p_g95}")
             st.caption(t['distancia_fmt'].format(g['Distancia']))
         with c2:
-            st.link_button(t['navegar'], f"https://www.google.com/maps/dir/?api=1&destination={g['lat_num']},{g['lon_num']}", use_container_width=True)
