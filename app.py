@@ -157,12 +157,13 @@ st.markdown(f"""
 
 @st.cache_data(ttl=3600)
 def cargar_datos():
-    url = "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/"
-    session = requests.Session(); session.mount("https://", SSLAdapter())
     try:
-        r = session.get(url, timeout=25)
-        return r.json()["ListaEESSPrecio"], datetime.datetime.now()
-    except: return None, None
+        with open("precios_gasolineras.json", "r", encoding="utf-8") as f:
+            payload = json.load(f)
+        return payload["datos"], datetime.datetime.fromisoformat(payload["fecha_descarga"])
+    except:
+        return None, None
+
 
 datos, fecha_act = cargar_datos()
 if not datos: st.error(t['error_con']); st.stop()
