@@ -26,5 +26,5 @@ jobs:
 
       - name: Abrir app
         env:
-          STREAMLIT_APP_URL: "https://gasolindegi.streamlit.app/"
+          STREAMLIT_APP_URL: "https://mis-gasolineras-es9yfqpe8mpcqenagmrykd.streamlit.app/"
         run: python wake_app.py
