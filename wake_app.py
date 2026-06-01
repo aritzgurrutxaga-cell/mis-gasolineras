@@ -2,7 +2,7 @@
 import os
 from playwright.sync_api import sync_playwright
 
-url = os.environ["https://gasolindegi.streamlit.app/"]
+url = os.environ["STREAMLIT_APP_"]
 
 with sync_playwright() as p:
     browser = p.chromium.launch(headless=True)
