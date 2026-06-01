@@ -118,7 +118,9 @@ st.radio("Idioma", ["EU", "ES"],
 t = TRAD[st.session_state.lang]
 
 # --- AJUSTES DE DISEÑO CSS ---
+
 st.markdown(f"""
+<style>
     
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;800&display=swap');
         .block-container {{ padding-top: 1rem !important; padding-bottom: 25vh !important; }}
@@ -154,7 +156,9 @@ st.markdown(f"""
         details div[data-testid="stButton"] button[kind="primary"] {{ min-height: 48px !important; padding: 0.5rem 1rem !important; box-shadow: none !important; }}
         details div[data-testid="stButton"] button[kind="primary"]::after {{ content: none !important; }}
     
+</style>
 """, unsafe_allow_html=True)
+
 
 @st.cache_data(ttl=3600)
 def cargar_datos():
