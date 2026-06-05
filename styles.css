@@ -166,15 +166,14 @@ body {
 .sugerencias {
   position: absolute;
   z-index: 9999;
-  bottom: calc(100% + 6px);
+  top: calc(100% + 6px); /* Cambiado de bottom a top para que despliegue hacia abajo y no se salga */
   left: 0;
   right: 0;
   background: white;
   border: 1px solid #e2e8f0;
   border-radius: 14px;
   box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
-  overflow: hidden;
-  max-height: 280px;
+  max-height: 140px; /* Altura compacta ideal para mostrar 2-3 hints y forzar scroll visible */
   overflow-y: auto;
 }
 
@@ -348,8 +347,8 @@ body {
   }
 
   .sugerencias {
-    bottom: calc(100% + 8px);
-    max-height: 260px;
+    top: calc(100% + 6px); /* Sincronizado en móviles hacia abajo */
+    max-height: 140px;
   }
 
   .sugerencia-item {
