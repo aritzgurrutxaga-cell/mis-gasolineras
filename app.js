@@ -401,29 +401,31 @@ function iniciarGeolocalizacion() {
     return;
   }
 
-  navigator.geolocation.getCurrentPosition(
-    pos => {
-      pararCuentaAtras();
+  setTimeout(() => {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        pararCuentaAtras();
 
-      latRef = pos.coords.latitude;
-      lonRef = pos.coords.longitude;
-      muniRef = municipioMasCercano(latRef, lonRef) || "GPS";
+        latRef = pos.coords.latitude;
+        lonRef = pos.coords.longitude;
+        muniRef = municipioMasCercano(latRef, lonRef) || "GPS";
 
-      mostrarPantalla("resultados");
-      pintarResultados();
-    },
-    () => {
-      pararCuentaAtras();
+        mostrarPantalla("resultados");
+        pintarResultados();
+      },
+      () => {
+        pararCuentaAtras();
 
-      textoMunicipio.textContent = t().ubicacion_no_disponible;
-      mostrarPantalla("manual");
-    },
-    {
-      enableHighAccuracy: true,
-      timeout: 20000,
-      maximumAge: 0
-    }
-  );
+        textoMunicipio.textContent = t().ubicacion_no_disponible;
+        mostrarPantalla("manual");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 20000,
+        maximumAge: 0
+      }
+    );
+  }, 600);
 }
 
 async function iniciarSegunPermisoUbicacion() {
