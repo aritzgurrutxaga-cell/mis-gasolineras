@@ -66,6 +66,7 @@ const sugerenciasMunicipio = document.getElementById("sugerencias-municipio");
 const btnConfirmar = document.getElementById("btn-confirmar");
 
 const inputMunicipioAjustes = document.getElementById("input-municipio-ajustes");
+const btnClearMuni = document.getElementById("btn-clear-muni");
 const sugerenciasMunicipioAjustes = document.getElementById("sugerencias-municipio-ajustes");
 const resultados = document.getElementById("resultados");
 
@@ -75,11 +76,11 @@ function t() {
 
 function escapeHtml(valor) {
   return String(valor ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "構造");
+    .replaceAll("&", "&")
+    .replaceAll("<", "<")
+    .replaceAll(">", ">")
+    .replaceAll('"', "\"")
+    .replaceAll("'", "'");
 }
 
 function mostrarPantalla(nombre) {
@@ -172,10 +173,7 @@ function obtenerSugerencias(valor) {
   const q = normalizarTexto(valor);
   if (!q) return [];
 
-  const empieza = municipios.filter(m => normalizarTexto(m).startsWith(q));
-  const contiene = municipios.filter(m => !normalizarTexto(m).startsWith(q) && normalizarTexto(m).includes(q));
-
-  return [...empieza, ...contiene].slice(0, 8);
+  return municipios.filter(m => normalizarTexto(m).startsWith(q)).slice(0, 8);
 }
 
 function pintarSugerencias(input, contenedor) {
@@ -210,9 +208,6 @@ function buscarMunicipioValido(valor) {
 
   const empieza = municipios.find(m => normalizarTexto(m).startsWith(q));
   if (empieza) return empieza;
-
-  const contiene = municipios.find(m => normalizarTexto(m).includes(q));
-  if (contiene) return contiene;
 
   return null;
 }
@@ -508,6 +503,13 @@ inputMunicipio.addEventListener("input", () => {
 
 inputMunicipioAjustes.addEventListener("input", () => {
   pintarSugerencias(inputMunicipioAjustes, sugerenciasMunicipioAjustes);
+});
+
+btnClearMuni.addEventListener("click", () => {
+  muniRef = null;
+  ocultarSugerencias();
+  sincronizarFiltrosUI();
+  pintarResultados();
 });
 
 sugerenciasMunicipio.addEventListener("click", e => {
