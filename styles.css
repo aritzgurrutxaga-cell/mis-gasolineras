@@ -6,7 +6,7 @@
 
 body {
   margin: 0;
-  background: #f1f5f9; /* Un pelín más oscuro para aumentar el contraste con las tarjetas */
+  background: #f1f5f9; /* Fondo de la web base */
   color: #1e293b;
   font-family: 'Poppins', sans-serif;
 }
@@ -132,7 +132,7 @@ body {
   line-height: 44px;
   font-size: 0.95rem;
   border-radius: 12px;
-  padding-right: 38px; /* Espacio reservado para que el texto no pise la cruz minimalista */
+  padding-right: 38px;
 }
 
 .autocomplete {
@@ -228,9 +228,9 @@ body {
 .fuel-btn {
   flex: 1;
   min-height: 38px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #cbd5e1; /* Línea de trazado exterior sutil */
   border-radius: 10px;
-  background: #ffffff;
+  background: #f1f5f9; /* Mismo color que el fondo de la web */
   color: #475569;
   font-family: 'Poppins', sans-serif;
   font-weight: 600;
@@ -241,15 +241,14 @@ body {
 
 .radio-btn:hover,
 .fuel-btn:hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
+  background: #e2e8f0;
   color: #1e293b;
 }
 
 .radio-btn.active,
 .fuel-btn.active {
-  background: rgba(30, 41, 59, 0.08);
-  border-color: #1e293b;
+  background: rgba(30, 41, 59, 0.12); /* Sombreado amable y traslúcido */
+  border-color: #cbd5e1; /* Mantiene el trazado sutil, eliminando la línea negra */
   color: #1e293b;
   box-shadow: none;
 }
@@ -306,8 +305,8 @@ body {
   width: 100%;
   min-height: 40px;
   border-radius: 10px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #f1f5f9; /* Mismo color que el fondo de la web */
+  border: 1px solid #cbd5e1; /* Misma línea de trazado exterior sutil */
   color: #1e293b;
   text-decoration: none;
   font-weight: 700;
@@ -319,7 +318,7 @@ body {
 }
 
 .btn-navegar:hover {
-  background: #f1f5f9;
+  background: #e2e8f0;
 }
 
 .mensaje {
