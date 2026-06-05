@@ -216,7 +216,7 @@ function buscarMunicipioValido(valor) {
   if (exacto) return exacto;
 
   const empieza = municipios.find(m => normalizarTexto(m).startsWith(q));
-  if (emieza) return empieza;
+  if (empieza) return empieza;
 
   return null;
 }
@@ -279,7 +279,6 @@ function sincronizarFiltrosUI() {
 function pintarResultados() {
   guardarEstado();
 
-  // Si se ha borrado el municipio, vaciar resultados con el mensaje bilingüe solicitado
   if (!muniRef) {
     resultados.innerHTML = `<div class="mensaje">Hautatu udalerri bat / Seleccione un municipio</div>`;
     return;
@@ -422,7 +421,7 @@ function iniciarGeolocalizacion() {
         pararCuentaAtras();
 
         textoMunicipio.textContent = t().ubicacion_no_disponible;
-        mostrarPantaga("manual");
+        mostrarPantalla("manual");
       },
       {
         enableHighAccuracy: true,
@@ -528,6 +527,7 @@ btnClearMuni.addEventListener("click", () => {
   ocultarSugerencias();
   sincronizarFiltrosUI();
   pintarResultados();
+  inputMunicipioAjustes.focus(); // Coloca el foco inmediatamente para empezar a editar y levantar teclado
 });
 
 sugerenciasMunicipio.addEventListener("click", e => {
