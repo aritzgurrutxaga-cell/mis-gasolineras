@@ -17,8 +17,8 @@ const TRAD = {
     error_con: "Konexio errorea.",
     navegar: "Nabigatu",
     distancia_fmt: "📍 {d} km-ra",
-    label_muni: "Udalerria:",
-    sin_resultados: "Ez da gasolindegirik aurkitu hautatutako erradioan."
+    sin_resultados: "Ez da gasolindegirik aurkitu hautatutako erradioan.",
+    municipio_no_valido: "Aukeratu zerrendako udalerri bat."
   },
   es: {
     subtitulo: "Compara precios en tiempo real y ahorra en cada repostaje.",
@@ -38,19 +38,19 @@ const TRAD = {
     error_con: "Error de conexión.",
     navegar: "Navegar",
     distancia_fmt: "📍 A {d} km",
-    label_muni: "Municipio:",
-    sin_resultados: "No se han encontrado gasolineras en el radio seleccionado."
+    sin_resultados: "No se han encontrado gasolineras en el radio seleccionado.",
+    municipio_no_valido: "Selecciona un municipio de la lista."
   }
 };
 
 let datos = [];
 let lang = localStorage.getItem("lang_gasolineras") || "eu";
-let municipioGuardado = localStorage.getItem("muni_gasolineras") || null;
 let tipoCombustible = localStorage.getItem("comb_gasolineras") || "Diésel";
 let radioKm = Number(localStorage.getItem("radio_gasolineras") || 5);
 let latRef = null;
 let lonRef = null;
 let muniRef = null;
+let municipios = [];
 
 const pantallaInicio = document.getElementById("pantalla-inicio");
 const pantallaLocalizando = document.getElementById("pantalla-localizando");
@@ -65,12 +65,15 @@ const btnUbicacionText = document.getElementById("btn-ubicacion-text");
 const btnUbicacionSub = document.getElementById("btn-ubicacion-sub");
 const textoLocalizando = document.getElementById("texto-localizando");
 const textoMunicipio = document.getElementById("texto-municipio");
-const selectMunicipio = document.getElementById("select-municipio");
+
+const inputMunicipio = document.getElementById("input-municipio");
+const listaMunicipios = document.getElementById("lista-municipios");
 const btnConfirmar = document.getElementById("btn-confirmar");
 
 const tituloAjustes = document.getElementById("titulo-ajustes");
 const labelCambiarMuni = document.getElementById("label-cambiar-muni");
-const selectMunicipioAjustes = document.getElementById("select-municipio-ajustes");
+const inputMunicipioAjustes = document.getElementById("input-municipio-ajustes");
+const listaMunicipiosAjustes = document.getElementById("lista-municipios-ajustes");
 const labelRadio = document.getElementById("label-radio");
 const labelCombustible = document.getElementById("label-combustible");
 const btnBuscarAjustes = document.getElementById("btn-buscar-ajustes");
@@ -104,6 +107,7 @@ function aplicarIdioma() {
   btnUbicacionSub.textContent = t().btn_inicio_sub;
   textoLocalizando.textContent = t().localizando;
   textoMunicipio.textContent = t().escribe_muni;
+  inputMunicipio.placeholder = t().placeholder;
   btnConfirmar.textContent = t().btn_confirmar;
 
   tituloAjustes.textContent = t().ajustes_tit;
@@ -112,12 +116,17 @@ function aplicarIdioma() {
   labelCombustible.textContent = t().ordenar;
   btnBuscarAjustes.textContent = t().btn_buscar;
 
-  const placeholder = selectMunicipio.querySelector("option[value='']");
-  if (placeholder) placeholder.textContent = t().placeholder;
-
   if (!pantallaResultados.classList.contains("hidden") && muniRef) {
     pintarResultados();
   }
+}
+
+function normalizarTexto(valor) {
+  return String(valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
 }
 
 function normalizarNumero(valor) {
@@ -149,27 +158,26 @@ function prepararDatos(raw) {
   }));
 }
 
-function municipiosUnicos() {
-  return [...new Set(datos.map(g => String(g["Municipio"])).filter(Boolean))].sort();
-}
-
 function rellenarMunicipios() {
-  const municipios = municipiosUnicos();
+  municipios = [...new Set(datos.map(g => String(g["Municipio"])).filter(Boolean))].sort();
 
-  selectMunicipio.innerHTML = `<option value="">${t().placeholder}</option>`;
-  selectMunicipioAjustes.innerHTML = "";
+  listaMunicipios.innerHTML = "";
+  listaMunicipiosAjustes.innerHTML = "";
 
   municipios.forEach(muni => {
     const opt1 = document.createElement("option");
     opt1.value = muni;
-    opt1.textContent = muni;
-    selectMunicipio.appendChild(opt1);
+    listaMunicipios.appendChild(opt1);
 
     const opt2 = document.createElement("option");
     opt2.value = muni;
-    opt2.textContent = muni;
-    selectMunicipioAjustes.appendChild(opt2);
+    listaMunicipiosAjustes.appendChild(opt2);
   });
+}
+
+function buscarMunicipioValido(valor) {
+  const buscado = normalizarTexto(valor);
+  return municipios.find(m => normalizarTexto(m) === buscado) || null;
 }
 
 function municipioMasCercano(lat, lon) {
@@ -190,17 +198,22 @@ function municipioMasCercano(lat, lon) {
 }
 
 function obtenerCoordenadasMunicipio(municipio) {
-  const fila = datos.find(g => String(g["Municipio"]) === String(municipio));
-  if (!fila) return null;
+  const filas = datos.filter(g => String(g["Municipio"]) === String(municipio));
+
+  if (!filas.length) return null;
+
+  const latitudes = filas.map(g => g.lat_num).filter(v => !Number.isNaN(v));
+  const longitudes = filas.map(g => g.lon_num).filter(v => !Number.isNaN(v));
+
+  if (!latitudes.length || !longitudes.length) return null;
 
   return {
-    lat: fila.lat_num,
-    lon: fila.lon_num
+    lat: latitudes.reduce((a, b) => a + b, 0) / latitudes.length,
+    lon: longitudes.reduce((a, b) => a + b, 0) / longitudes.length
   };
 }
 
 function guardarEstado() {
-  if (muniRef) localStorage.setItem("muni_gasolineras", muniRef);
   localStorage.setItem("comb_gasolineras", tipoCombustible);
   localStorage.setItem("radio_gasolineras", String(radioKm));
   localStorage.setItem("lang_gasolineras", lang);
@@ -220,7 +233,7 @@ function pintarResultados() {
   guardarEstado();
   actualizarBotonesFiltros();
 
-  selectMunicipioAjustes.value = muniRef || "";
+  inputMunicipioAjustes.value = muniRef || "";
 
   const colPrecio = tipoCombustible === "Diésel" ? "precio_diesel_num" : "precio_g95_num";
 
@@ -254,7 +267,6 @@ function pintarResultados() {
       : "N/A";
 
     const distancia = t().distancia_fmt.replace("{d}", g.distancia.toFixed(2));
-
     const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${g.lat_num},${g.lon_num}`;
 
     return `
@@ -272,11 +284,20 @@ function pintarResultados() {
   }).join("");
 }
 
-function buscarPorMunicipio(municipio) {
-  if (!municipio) return;
+function buscarPorMunicipio(valor) {
+  const municipio = buscarMunicipioValido(valor);
+
+  if (!municipio) {
+    resultados.innerHTML = `<div class="mensaje">${t().municipio_no_valido}</div>`;
+    mostrarPantalla("manual");
+    return;
+  }
 
   const coords = obtenerCoordenadasMunicipio(municipio);
-  if (!coords) return;
+  if (!coords) {
+    mostrarPantalla("manual");
+    return;
+  }
 
   muniRef = municipio;
   latRef = coords.lat;
@@ -331,8 +352,8 @@ function iniciarGeolocalizacion() {
     },
     {
       enableHighAccuracy: true,
-      timeout: 5000,
-      maximumAge: 300000
+      timeout: 12000,
+      maximumAge: 0
     }
   );
 }
@@ -350,12 +371,7 @@ async function cargarDatos() {
 
     datos = prepararDatos(payload.datos);
     rellenarMunicipios();
-
-    if (municipioGuardado) {
-      buscarPorMunicipio(municipioGuardado);
-    } else {
-      mostrarPantalla("inicio");
-    }
+    mostrarPantalla("inicio");
   } catch (e) {
     pantallaInicio.innerHTML = `<h1 class="titulo">gasolina<span>.eus</span></h1><div class="mensaje">${t().error_con}</div>`;
     mostrarPantalla("inicio");
@@ -377,12 +393,23 @@ btnEs.addEventListener("click", () => {
 btnUbicacion.addEventListener("click", iniciarGeolocalizacion);
 
 btnConfirmar.addEventListener("click", () => {
-  buscarPorMunicipio(selectMunicipio.value);
+  buscarPorMunicipio(inputMunicipio.value);
+});
+
+inputMunicipio.addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    buscarPorMunicipio(inputMunicipio.value);
+  }
 });
 
 btnBuscarAjustes.addEventListener("click", () => {
-  const nuevoMuni = selectMunicipioAjustes.value;
-  buscarPorMunicipio(nuevoMuni);
+  buscarPorMunicipio(inputMunicipioAjustes.value);
+});
+
+inputMunicipioAjustes.addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    buscarPorMunicipio(inputMunicipioAjustes.value);
+  }
 });
 
 document.querySelectorAll(".radio-btn").forEach(btn => {
