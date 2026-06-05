@@ -149,7 +149,22 @@ function normalizarTexto(valor) {
 
 function normalizarNumero(valor) {
   if (valor === null || valor === undefined) return NaN;
-  return Number(String(valor).replace(",", "."));
+
+  const texto = String(valor).trim();
+
+  if (
+    texto === "" ||
+    texto.toUpperCase() === "N/A" ||
+    texto.toUpperCase() === "NA" ||
+    texto.toUpperCase() === "NULL" ||
+    texto === "-"
+  ) {
+    return NaN;
+  }
+
+  const numero = Number(texto.replace(",", "."));
+
+  return Number.isFinite(numero) ? numero : NaN;
 }
 
 function calcularDistancia(lat1, lon1, lat2, lon2) {
@@ -306,9 +321,14 @@ function pintarResultados() {
     }))
     .filter(g => !Number.isNaN(g.distancia) && g.distancia <= radioKm)
     .sort((a, b) => {
-      const pa = Number.isNaN(a[colPrecio]) ? Infinity : a[colPrecio];
-      const pb = Number.isNaN(b[colPrecio]) ? Infinity : b[colPrecio];
-      return pa - pb;
+      const pa = Number.isFinite(a[colPrecio]) ? a[colPrecio] : Number.POSITIVE_INFINITY;
+      const pb = Number.isFinite(b[colPrecio]) ? b[colPrecio] : Number.POSITIVE_INFINITY;
+
+      if (pa !== pb) {
+        return pa - pb;
+      }
+
+      return a.distancia - b.distancia;
     });
 
   resumenFiltros.innerHTML = `📍 <b>${escapeHtml(muniRef || "")}</b> | 🚗 <b>${radioKm} km</b> | ⛽ <b>${escapeHtml(tipoCombustible)}</b>`;
@@ -319,11 +339,11 @@ function pintarResultados() {
   }
 
   resultados.innerHTML = filtradas.map(g => {
-    const diesel = !Number.isNaN(g.precio_diesel_num) && g["Precio Gasoleo A"]
+    const diesel = Number.isFinite(g.precio_diesel_num) && g["Precio Gasoleo A"]
       ? `${escapeHtml(g["Precio Gasoleo A"])}€`
       : "N/A";
 
-    const g95 = !Number.isNaN(g.precio_g95_num) && g["Precio Gasolina 95 E5"]
+    const g95 = Number.isFinite(g.precio_g95_num) && g["Precio Gasolina 95 E5"]
       ? `${escapeHtml(g["Precio Gasolina 95 E5"])}€`
       : "N/A";
 
