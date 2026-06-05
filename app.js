@@ -4,7 +4,8 @@ const TRAD = {
     btn_inicio: "📍 Erakutsi gasolindegiak",
     btn_inicio_sub: "Gomendagarria da kokapena onartzea bilatzeko",
     localizando: "⏳ Kokapena bilatzen...",
-    localizando_largo: "⏳ Kokapena bilatzen... baimena eman baduzu, segundo batzuk behar izan ditzake.",
+    localizando_countdown: "⏳ Kokapena bilatzen... {s} segundo",
+    localizando_countdown_plural: "⏳ Kokapena bilatzen... {s} segundo",
     escribe_muni: "📍 Idatzi zure udalerria:",
     placeholder: "Bilatu...",
     btn_confirmar: "🔍 Bilatu",
@@ -25,7 +26,8 @@ const TRAD = {
     btn_inicio: "📍 Mostrar gasolineras",
     btn_inicio_sub: "Es recomendable permitir la ubicación para buscar",
     localizando: "⏳ Localizando...",
-    localizando_largo: "⏳ Localizando... si has permitido la ubicación, puede tardar unos segundos.",
+    localizando_countdown: "⏳ Localizando... {s} segundo",
+    localizando_countdown_plural: "⏳ Localizando... {s} segundos",
     escribe_muni: "📍 Escribe tu municipio:",
     placeholder: "Buscar...",
     btn_confirmar: "✅ Confirmar selección",
@@ -51,6 +53,7 @@ let radioKm = Number(localStorage.getItem("radio_gasolineras") || 5);
 let latRef = null;
 let lonRef = null;
 let muniRef = null;
+let intervaloCuentaAtras = null;
 
 const pantallaInicio = document.getElementById("pantalla-inicio");
 const pantallaLocalizando = document.getElementById("pantalla-localizando");
@@ -114,7 +117,6 @@ function aplicarIdioma() {
   subtitulo.textContent = t().subtitulo;
   btnUbicacionText.textContent = t().btn_inicio;
   btnUbicacionSub.textContent = t().btn_inicio_sub;
-  textoLocalizando.textContent = t().localizando;
   textoMunicipio.textContent = t().escribe_muni;
   inputMunicipio.placeholder = t().placeholder;
   btnConfirmar.textContent = t().btn_confirmar;
@@ -351,11 +353,43 @@ function buscarPorMunicipio(valor) {
   pintarResultados();
 }
 
+function iniciarCuentaAtras() {
+  if (intervaloCuentaAtras) {
+    clearInterval(intervaloCuentaAtras);
+  }
+
+  let segundos = 5;
+
+  textoLocalizando.textContent = t().localizando_countdown_plural.replace("{s}", segundos);
+
+  intervaloCuentaAtras = setInterval(() => {
+    segundos -= 1;
+
+    if (segundos <= 0) {
+      clearInterval(intervaloCuentaAtras);
+      intervaloCuentaAtras = null;
+      textoLocalizando.textContent = t().localizando;
+      return;
+    }
+
+    const clave = segundos === 1 ? "localizando_countdown" : "localizando_countdown_plural";
+    textoLocalizando.textContent = t()[clave].replace("{s}", segundos);
+  }, 1000);
+}
+
+function pararCuentaAtras() {
+  if (intervaloCuentaAtras) {
+    clearInterval(intervaloCuentaAtras);
+    intervaloCuentaAtras = null;
+  }
+}
+
 function iniciarGeolocalizacion() {
   mostrarPantalla("localizando");
-  textoLocalizando.textContent = t().localizando_largo;
+  iniciarCuentaAtras();
 
   if (!navigator.geolocation) {
+    pararCuentaAtras();
     textoMunicipio.textContent = t().ubicacion_no_disponible;
     mostrarPantalla("manual");
     return;
@@ -363,6 +397,8 @@ function iniciarGeolocalizacion() {
 
   navigator.geolocation.getCurrentPosition(
     pos => {
+      pararCuentaAtras();
+
       latRef = pos.coords.latitude;
       lonRef = pos.coords.longitude;
       muniRef = municipioMasCercano(latRef, lonRef) || "GPS";
@@ -371,6 +407,8 @@ function iniciarGeolocalizacion() {
       pintarResultados();
     },
     () => {
+      pararCuentaAtras();
+
       textoMunicipio.textContent = t().ubicacion_no_disponible;
       mostrarPantalla("manual");
     },
