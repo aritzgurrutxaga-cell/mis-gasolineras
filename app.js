@@ -216,7 +216,7 @@ function buscarMunicipioValido(valor) {
   if (exacto) return exacto;
 
   const empieza = municipios.find(m => normalizarTexto(m).startsWith(q));
-  if (empieza) return empieza;
+  if (emieza) return empieza;
 
   return null;
 }
@@ -278,6 +278,12 @@ function sincronizarFiltrosUI() {
 
 function pintarResultados() {
   guardarEstado();
+
+  // Si se ha borrado el municipio, vaciar resultados con el mensaje bilingüe solicitado
+  if (!muniRef) {
+    resultados.innerHTML = `<div class="mensaje">Hautatu udalerri bat / Seleccione un municipio</div>`;
+    return;
+  }
 
   const colPrecio = tipoCombustible === "Diésel" ? "precio_diesel_num" : "precio_g95_num";
 
@@ -416,7 +422,7 @@ function iniciarGeolocalizacion() {
         pararCuentaAtras();
 
         textoMunicipio.textContent = t().ubicacion_no_disponible;
-        mostrarPantalla("manual");
+        mostrarPantaga("manual");
       },
       {
         enableHighAccuracy: true,
@@ -517,6 +523,8 @@ inputMunicipioAjustes.addEventListener("input", () => {
 btnClearMuni.addEventListener("click", () => {
   inputMunicipioAjustes.value = "";
   muniRef = null;
+  latRef = null;
+  lonRef = null;
   ocultarSugerencias();
   sincronizarFiltrosUI();
   pintarResultados();
