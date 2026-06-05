@@ -6,7 +6,7 @@
 
 body {
   margin: 0;
-  background: #ffffff;
+  background: #f8fafc; /* Fondo off-white para hacer resaltar los elementos blancos */
   color: #1e293b;
   font-family: 'Poppins', sans-serif;
 }
@@ -116,7 +116,7 @@ body {
   min-height: 54px;
   height: 54px;
   border-radius: 12px;
-  border: 1px solid #d8e0ea;
+  border: 1px solid #e2e8f0;
   background: white;
   color: #1e293b;
   padding: 0 14px;
@@ -146,9 +146,9 @@ body {
   left: 0;
   right: 0;
   background: white;
-  border: 1px solid #d8e0ea;
+  border: 1px solid #e2e8f0;
   border-radius: 14px;
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
   overflow: hidden;
   max-height: 280px;
   overflow-y: auto;
@@ -161,7 +161,7 @@ body {
   font-size: 1rem;
   line-height: 1.35;
   color: #1e293b;
-  border-bottom: 1px solid #eef2f6;
+  border-bottom: 1px solid #f1f5f9;
   display: flex;
   align-items: center;
 }
@@ -178,9 +178,9 @@ body {
 
 .zona-filtros {
   background: #ffffff;
-  border: 1px solid #d8e0ea;
+  border: 1px solid #e2e8f0;
   border-radius: 16px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.045);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
   padding: 0.8rem;
   margin-bottom: 1.5rem;
   display: flex;
@@ -204,7 +204,7 @@ body {
 .fuel-btn {
   flex: 1;
   min-height: 44px;
-  border: 1px solid #d8e0ea;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   background: #ffffff;
   color: #334155;
@@ -226,16 +226,16 @@ body {
   background: #1e293b;
   border-color: #1e293b;
   color: #ffffff;
-  box-shadow: 0 3px 10px rgba(30, 41, 59, 0.16);
+  box-shadow: 0 3px 10px rgba(30, 41, 59, 0.12);
 }
 
 .gasolinera-card {
   background: #ffffff;
-  border: 1px solid #d8e0ea;
+  border: 1px solid #e2e8f0; /* Borde más limpio y nítido */
   border-radius: 16px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.045);
-  padding: 0.8rem;
-  margin-bottom: 0.7rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); /* Sombra definida y minimalista */
+  padding: 1rem;
+  margin-bottom: 0.75rem;
   display: grid;
   grid-template-columns: 2.5fr 1.5fr;
   gap: 1rem;
@@ -264,7 +264,7 @@ body {
   min-height: 42px;
   border-radius: 10px;
   background: #f8fafc;
-  border: 1px solid #d8e0ea;
+  border: 1px solid #e2e8f0;
   color: #1e293b;
   text-decoration: none;
   font-weight: 800;
@@ -272,6 +272,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background-color 0.15s ease;
+}
+
+.btn-navegar:hover {
+  background: #f1f5f9;
 }
 
 .mensaje {
@@ -292,6 +297,7 @@ body {
 
   .gasolinera-card {
     grid-template-columns: 1fr;
+    gap: 0.8rem;
   }
 
   .btn-navegar {
