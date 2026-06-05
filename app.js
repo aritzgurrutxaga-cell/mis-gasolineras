@@ -483,6 +483,7 @@ async function cargarDatos() {
 }
 
 btnEu.addEventListener("click", () => {
+  type = "eu";
   lang = "eu";
   aplicarIdioma();
   guardarEstado();
@@ -506,6 +507,7 @@ inputMunicipioAjustes.addEventListener("input", () => {
 });
 
 btnClearMuni.addEventListener("click", () => {
+  inputMunicipioAjustes.value = ""; // Forzar limpieza explícita del recuadro
   muniRef = null;
   ocultarSugerencias();
   sincronizarFiltrosUI();
