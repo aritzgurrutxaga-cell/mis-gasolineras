@@ -48,8 +48,14 @@ const TRAD = {
 let datos = [];
 let municipios = [];
 let lang = localStorage.getItem("lang_gasolineras") || "eu";
+
 let tipoCombustible = localStorage.getItem("comb_gasolineras") || "Diésel";
 let radioKm = Number(localStorage.getItem("radio_gasolineras") || 5);
+
+let tipoCombustiblePendiente = tipoCombustible;
+let radioKmPendiente = radioKm;
+let municipioPendiente = null;
+
 let latRef = null;
 let lonRef = null;
 let muniRef = null;
@@ -262,14 +268,23 @@ function guardarEstado() {
   localStorage.setItem("lang_gasolineras", lang);
 }
 
-function actualizarBotonesFiltros() {
+function actualizarBotonesFiltrosAplicados() {
   document.querySelectorAll(".radio-btn").forEach(btn => {
-    btn.classList.toggle("active", Number(btn.dataset.radio) === radioKm);
+    btn.classList.toggle("active", Number(btn.dataset.radio) === radioKmPendiente);
   });
 
   document.querySelectorAll(".fuel-btn").forEach(btn => {
-    btn.classList.toggle("active", btn.dataset.fuel === tipoCombustible);
+    btn.classList.toggle("active", btn.dataset.fuel === tipoCombustiblePendiente);
   });
+}
+
+function prepararPendientesDesdeAplicados() {
+  municipioPendiente = muniRef;
+  radioKmPendiente = radioKm;
+  tipoCombustiblePendiente = tipoCombustible;
+
+  inputMunicipioAjustes.value = municipioPendiente || "";
+  actualizarBotonesFiltrosAplicados();
 }
 
 function cerrarAjustes() {
@@ -280,9 +295,6 @@ function cerrarAjustes() {
 
 function pintarResultados() {
   guardarEstado();
-  actualizarBotonesFiltros();
-
-  inputMunicipioAjustes.value = muniRef || "";
 
   const colPrecio = tipoCombustible === "Diésel" ? "precio_diesel_num" : "precio_g95_num";
 
@@ -297,8 +309,7 @@ function pintarResultados() {
       const pa = Number.isNaN(a[colPrecio]) ? Infinity : a[colPrecio];
       const pb = Number.isNaN(b[colPrecio]) ? Infinity : b[colPrecio];
       return pa - pb;
-    })
-    .slice(0, 20);
+    });
 
   resumenFiltros.innerHTML = `📍 <b>${escapeHtml(muniRef || "")}</b> | 🚗 <b>${radioKm} km</b> | ⛽ <b>${escapeHtml(tipoCombustible)}</b>`;
 
@@ -357,6 +368,30 @@ function buscarPorMunicipio(valor) {
 
   ocultarSugerencias();
   mostrarPantalla("resultados");
+  prepararPendientesDesdeAplicados();
+  pintarResultados();
+}
+
+function aplicarFiltrosPendientes() {
+  const municipioElegido = buscarMunicipioValido(inputMunicipioAjustes.value);
+
+  if (municipioElegido) {
+    const coords = obtenerCoordenadasMunicipio(municipioElegido);
+
+    if (coords) {
+      muniRef = municipioElegido;
+      latRef = coords.lat;
+      lonRef = coords.lon;
+    }
+  }
+
+  radioKm = radioKmPendiente;
+  tipoCombustible = tipoCombustiblePendiente;
+
+  ocultarSugerencias();
+  cerrarAjustes();
+  mostrarPantalla("resultados");
+  prepararPendientesDesdeAplicados();
   pintarResultados();
 }
 
@@ -411,6 +446,7 @@ function iniciarGeolocalizacion() {
         muniRef = municipioMasCercano(latRef, lonRef) || "GPS";
 
         mostrarPantalla("resultados");
+        prepararPendientesDesdeAplicados();
         pintarResultados();
       },
       () => {
@@ -512,12 +548,14 @@ inputMunicipio.addEventListener("input", () => {
 });
 
 inputMunicipioAjustes.addEventListener("input", () => {
+  municipioPendiente = inputMunicipioAjustes.value;
   pintarSugerencias(inputMunicipioAjustes, sugerenciasMunicipioAjustes);
 });
 
 sugerenciasMunicipio.addEventListener("click", e => {
   const item = e.target.closest(".sugerencia-item");
   if (!item) return;
+
   inputMunicipio.value = item.dataset.value;
   buscarPorMunicipio(item.dataset.value);
 });
@@ -525,9 +563,10 @@ sugerenciasMunicipio.addEventListener("click", e => {
 sugerenciasMunicipioAjustes.addEventListener("click", e => {
   const item = e.target.closest(".sugerencia-item");
   if (!item) return;
+
   inputMunicipioAjustes.value = item.dataset.value;
-  buscarPorMunicipio(item.dataset.value);
-  cerrarAjustes();
+  municipioPendiente = item.dataset.value;
+  ocultarSugerencias();
 });
 
 btnConfirmar.addEventListener("click", () => {
@@ -535,8 +574,7 @@ btnConfirmar.addEventListener("click", () => {
 });
 
 btnBuscarAjustes.addEventListener("click", () => {
-  buscarPorMunicipio(inputMunicipioAjustes.value);
-  cerrarAjustes();
+  aplicarFiltrosPendientes();
 });
 
 inputMunicipio.addEventListener("keydown", e => {
@@ -549,24 +587,31 @@ inputMunicipio.addEventListener("keydown", e => {
 inputMunicipioAjustes.addEventListener("keydown", e => {
   if (e.key === "Enter") {
     e.preventDefault();
-    buscarPorMunicipio(inputMunicipioAjustes.value);
-    cerrarAjustes();
+    aplicarFiltrosPendientes();
   }
 });
 
 document.querySelectorAll(".radio-btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    radioKm = Number(btn.dataset.radio);
-    pintarResultados();
+    radioKmPendiente = Number(btn.dataset.radio);
+    actualizarBotonesFiltrosAplicados();
   });
 });
 
 document.querySelectorAll(".fuel-btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    tipoCombustible = btn.dataset.fuel;
-    pintarResultados();
+    tipoCombustiblePendiente = btn.dataset.fuel;
+    actualizarBotonesFiltrosAplicados();
   });
 });
+
+if (detallesAjustes) {
+  detallesAjustes.addEventListener("toggle", () => {
+    if (detallesAjustes.open) {
+      prepararPendientesDesdeAplicados();
+    }
+  });
+}
 
 document.addEventListener("click", e => {
   if (!e.target.closest(".autocomplete")) {
