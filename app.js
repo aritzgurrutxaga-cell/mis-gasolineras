@@ -9,6 +9,8 @@ const TRAD = {
     escribe_muni: "📍 Idatzi zure udalerria:",
     placeholder: "Bilatu...",
     btn_confirmar: "🔍 Bilatu",
+    titulo_buscar: "Bilatu",
+    titulo_resultados: "Emaitzak",
     error_con: "Konexio errorea.",
     navegar: "Nabigatu",
     distancia_fmt: "📍 {d} km-ra",
@@ -26,6 +28,8 @@ const TRAD = {
     escribe_muni: "📍 Escribe tu municipio:",
     placeholder: "Buscar...",
     btn_confirmar: "✅ Confirmar selección",
+    titulo_buscar: "Buscar",
+    titulo_resultados: "Resultados",
     error_con: "Error de conexión.",
     navegar: "Navegar",
     distancia_fmt: "📍 A {d} km",
@@ -65,6 +69,8 @@ const inputMunicipio = document.getElementById("input-municipio");
 const sugerenciasMunicipio = document.getElementById("sugerencias-municipio");
 const btnConfirmar = document.getElementById("btn-confirmar");
 
+const tituloBuscar = document.getElementById("titulo-buscar");
+const tituloResultados = document.getElementById("titulo-resultados");
 const inputMunicipioAjustes = document.getElementById("input-municipio-ajustes");
 const btnClearMuni = document.getElementById("btn-clear-muni");
 const sugerenciasMunicipioAjustes = document.getElementById("sugerencias-municipio-ajustes");
@@ -107,6 +113,9 @@ function aplicarIdioma() {
   textoMunicipio.textContent = t().escribe_muni;
   inputMunicipio.placeholder = t().placeholder;
   btnConfirmar.textContent = t().btn_confirmar;
+
+  if (tituloBuscar) tituloBuscar.textContent = t().titulo_buscar;
+  if (tituloResultados) tituloResultados.textContent = t().titulo_resultados;
 
   if (!pantallaResultados.classList.contains("hidden") && latRef !== null && lonRef !== null) {
     pintarResultados();
