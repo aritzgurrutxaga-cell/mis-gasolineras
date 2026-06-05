@@ -10,7 +10,8 @@ const TRAD = {
     placeholder: "Bilatu...",
     btn_confirmar: "🔍 Bilatu",
     titulo_buscar: "Bilatu",
-    titulo_resultados: "Emaitzak",
+    titulo_resultados: "{m} inguruko emaitzak",
+    seleccione_municipio: "Hautatu udalerri bat.",
     error_con: "Konexio errorea.",
     navegar: "Nabigatu",
     distancia_fmt: "📍 {d} km-ra",
@@ -29,7 +30,8 @@ const TRAD = {
     placeholder: "Buscar...",
     btn_confirmar: "✅ Confirmar selección",
     titulo_buscar: "Buscar",
-    titulo_resultados: "Resultados",
+    titulo_resultados: "Resultados cerca de {m}",
+    seleccione_municipio: "Seleccione un municipio.",
     error_con: "Error de conexión.",
     navegar: "Navegar",
     distancia_fmt: "📍 A {d} km",
@@ -115,9 +117,8 @@ function aplicarIdioma() {
   btnConfirmar.textContent = t().btn_confirmar;
 
   if (tituloBuscar) tituloBuscar.textContent = t().titulo_buscar;
-  if (tituloResultados) tituloResultados.textContent = t().titulo_resultados;
 
-  if (!pantallaResultados.classList.contains("hidden") && latRef !== null && lonRef !== null) {
+  if (!pantallaResultados.classList.contains("hidden")) {
     pintarResultados();
   }
 }
@@ -280,8 +281,17 @@ function pintarResultados() {
   guardarEstado();
 
   if (!muniRef) {
-    resultados.innerHTML = `<div class="mensaje">Hautatu udalerri bat / Seleccione un municipio</div>`;
+    if (tituloResultados) tituloResultados.textContent = lang === "eu" ? "Emaitzak" : "Resultados";
+    resultados.innerHTML = `<div class="mensaje">${escapeHtml(t().seleccione_municipio)}</div>`;
     return;
+  }
+
+  if (tituloResultados) {
+    if (muniRef === "GPS") {
+      tituloResultados.textContent = lang === "eu" ? "Zure kokapenetik gertuko emaitzak" : "Resultados cerca de tu ubicación";
+    } else {
+      tituloResultados.textContent = t().titulo_resultados.replace("{m}", muniRef);
+    }
   }
 
   const colPrecio = tipoCombustible === "Diésel" ? "precio_diesel_num" : "precio_g95_num";
@@ -527,7 +537,7 @@ btnClearMuni.addEventListener("click", () => {
   ocultarSugerencias();
   sincronizarFiltrosUI();
   pintarResultados();
-  inputMunicipioAjustes.focus(); // Coloca el foco inmediatamente para empezar a editar y levantar teclado
+  inputMunicipioAjustes.focus();
 });
 
 sugerenciasMunicipio.addEventListener("click", e => {
