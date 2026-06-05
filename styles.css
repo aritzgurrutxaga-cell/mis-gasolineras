@@ -131,10 +131,11 @@ body {
   width: 100%;
 }
 
+/* AHORA SALE ENCIMA DEL INPUT */
 .sugerencias {
   position: absolute;
   z-index: 9999;
-  top: calc(100% - 2px);
+  bottom: calc(100% + 6px);
   left: 0;
   right: 0;
   background: white;
@@ -147,8 +148,8 @@ body {
 }
 
 .sugerencia-item {
-  min-height: 46px;
-  padding: 11px 14px;
+  min-height: 48px;
+  padding: 12px 14px;
   cursor: pointer;
   font-size: 1rem;
   line-height: 1.35;
@@ -298,12 +299,12 @@ body {
   }
 
   .sugerencias {
-    top: calc(100% - 4px);
-    max-height: 230px;
+    bottom: calc(100% + 8px);
+    max-height: 260px;
   }
 
   .sugerencia-item {
-    min-height: 48px;
-    padding: 12px 14px;
+    min-height: 50px;
+    padding: 13px 14px;
   }
 }
