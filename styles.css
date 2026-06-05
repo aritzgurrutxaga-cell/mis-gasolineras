@@ -37,7 +37,7 @@ body {
   background: transparent;
   color: #1e293b;
   font-size: 0.8rem;
-  font-weight: 700; /* Lettering más minimalista */
+  font-weight: 700;
   cursor: pointer;
   padding: 8px 4px;
 }
@@ -53,10 +53,10 @@ body {
 .titulo {
   text-align: center;
   font-size: clamp(32px, 9vw, 44px);
-  font-weight: 600; /* Logo más fino y minimalista */
+  font-weight: 600;
   color: #1e293b;
-  letter-spacing: -0.5px; /* Menos tosco */
-  margin: 1.2rem 0 0.5rem 0; /* Un pelín más arriba */
+  letter-spacing: -0.5px;
+  margin: 1.2rem 0 0.5rem 0;
 }
 
 .titulo span {
@@ -88,7 +88,7 @@ body {
   color: white;
   font-family: 'Poppins', sans-serif;
   font-size: 1.3rem;
-  font-weight: 700; /* Lettering ajustado */
+  font-weight: 700;
   cursor: pointer;
   box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25);
   display: flex;
@@ -132,11 +132,35 @@ body {
   line-height: 44px;
   font-size: 0.95rem;
   border-radius: 12px;
+  padding-right: 38px; /* Espacio reservado para que el texto no pise la cruz minimalista */
 }
 
 .autocomplete {
   position: relative;
   width: 100%;
+}
+
+.btn-clear {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: color 0.15s ease;
+  z-index: 5;
+}
+
+.btn-clear:hover {
+  color: #475569;
 }
 
 .sugerencias {
@@ -203,13 +227,13 @@ body {
 .radio-btn,
 .fuel-btn {
   flex: 1;
-  min-height: 38px; /* Filtros un poco más pequeños y menos bastos */
+  min-height: 38px;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: #ffffff;
   color: #475569;
   font-family: 'Poppins', sans-serif;
-  font-weight: 600; /* Lettering más sutil */
+  font-weight: 600;
   font-size: 0.85rem;
   cursor: pointer;
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
@@ -224,7 +248,7 @@ body {
 
 .radio-btn.active,
 .fuel-btn.active {
-  background: rgba(30, 41, 59, 0.08); /* Fondo más amable con transparencia */
+  background: rgba(30, 41, 59, 0.08);
   border-color: #1e293b;
   color: #1e293b;
   box-shadow: none;
@@ -241,7 +265,6 @@ body {
   margin-bottom: 0.5rem;
 }
 
-/* Línea divisoria restablecida de forma limpia */
 .cabecera-resultados {
   border-top: 1px solid #e2e8f0;
   padding-top: 1.5rem;
@@ -265,7 +288,7 @@ body {
   margin: 0 0 0.4rem 0;
   color: #1e293b;
   font-size: 1.05rem;
-  font-weight: 600; /* Lettering corregido */
+  font-weight: 600;
 }
 
 .gasolinera-card p {
