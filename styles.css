@@ -4,15 +4,6 @@
   box-sizing: border-box;
 }
 
-/* Quitar la X nativa de los navegadores en inputs de tipo search */
-input[type="search"]::-webkit-search-cancel-button,
-input[type="search"]::-webkit-search-decoration,
-input[type="search"]::-webkit-search-results-button,
-input[type="search"]::-webkit-search-results-decoration {
-  -webkit-appearance: none;
-  display: none;
-}
-
 body {
   margin: 0;
   background: #f1f5f9; /* Fondo de la web base */
@@ -175,14 +166,14 @@ body {
 .sugerencias {
   position: absolute;
   z-index: 9999;
-  top: calc(100% + 6px);
+  top: calc(100% + 6px); /* Cambiado de bottom a top para que despliegue hacia abajo y no se salga */
   left: 0;
   right: 0;
   background: white;
   border: 1px solid #e2e8f0;
   border-radius: 14px;
   box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
-  max-height: 140px;
+  max-height: 140px; /* Altura compacta ideal para mostrar 2-3 hints y forzar scroll visible */
   overflow-y: auto;
 }
 
@@ -255,9 +246,9 @@ body {
 
 .radio-btn.active,
 .fuel-btn.active {
-  background: rgba(239, 68, 68, 0.1);
-  border-color: #ef4444;
-  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1); /* Selección roja sutil y transparente */
+  border-color: #ef4444; /* Trazado a juego con el rojo del logo */
+  color: #ef4444; /* Texto en rojo para mayor consistencia */
   box-shadow: none;
 }
 
@@ -296,4 +287,72 @@ body {
   color: #1e293b;
   font-size: 1.05rem;
   font-weight: 600;
+}
+
+.gasolinera-card p {
+  margin: 0.25rem 0;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.gasolinera-card .distancia {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.btn-navegar {
+  width: 100%;
+  min-height: 40px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #1e293b;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease;
+}
+
+.btn-navegar:hover {
+  background: #e2e8f0;
+}
+
+.mensaje {
+  text-align: center;
+  color: #64748b;
+  padding: 1rem;
+}
+
+@media (max-width: 520px) {
+  .app {
+    padding-left: 0.8rem;
+    padding-right: 0.8rem;
+  }
+
+  .filtros-grid {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .gasolinera-card {
+    grid-template-columns: 1fr;
+    gap: 0.8rem;
+  }
+
+  .btn-navegar {
+    min-height: 44px;
+  }
+
+  .sugerencias {
+    top: calc(100% + 6px); /* Sincronizado en móviles hacia abajo */
+    max-height: 140px;
+  }
+
+  .sugerencia-item {
+    min-height: 48px;
+    padding: 11px 14px;
+  }
 }
