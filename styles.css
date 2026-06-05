@@ -114,13 +114,15 @@ body {
 .select {
   width: 100%;
   min-height: 54px;
+  height: 54px;
   border-radius: 12px;
   border: 1px solid #e2e8f0;
   background: white;
   color: #1e293b;
-  padding: 4px 12px;
+  padding: 0 14px;
   font-family: 'Poppins', sans-serif;
   font-size: 1.05rem;
+  line-height: 54px;
   outline: none;
 }
 
@@ -132,7 +134,7 @@ body {
 .sugerencias {
   position: absolute;
   z-index: 9999;
-  top: calc(100% + 6px);
+  top: calc(100% - 2px);
   left: 0;
   right: 0;
   background: white;
@@ -140,16 +142,20 @@ body {
   border-radius: 14px;
   box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
   overflow: hidden;
-  max-height: 260px;
+  max-height: 280px;
   overflow-y: auto;
 }
 
 .sugerencia-item {
-  padding: 12px 14px;
+  min-height: 46px;
+  padding: 11px 14px;
   cursor: pointer;
-  font-size: 0.98rem;
+  font-size: 1rem;
+  line-height: 1.35;
   color: #1e293b;
   border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
 }
 
 .sugerencia-item:last-child {
@@ -289,5 +295,15 @@ body {
 
   .btn-navegar {
     min-height: 46px;
+  }
+
+  .sugerencias {
+    top: calc(100% - 4px);
+    max-height: 230px;
+  }
+
+  .sugerencia-item {
+    min-height: 48px;
+    padding: 12px 14px;
   }
 }
