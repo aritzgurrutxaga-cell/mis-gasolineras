@@ -9,11 +9,6 @@ const TRAD = {
     escribe_muni: "📍 Idatzi zure udalerria:",
     placeholder: "Bilatu...",
     btn_confirmar: "🔍 Bilatu",
-    ajustes_tit: "⚙️ Bilaketa ezarpenak",
-    cambiar_muni: "Aldatu udalerria:",
-    radio: "Bilaketa-erradioa:",
-    ordenar: "Prezioaren arabera ordenatu:",
-    btn_buscar: "🔍 Bilatu",
     error_con: "Konexio errorea.",
     navegar: "Nabigatu",
     distancia_fmt: "📍 {d} km-ra",
@@ -31,11 +26,6 @@ const TRAD = {
     escribe_muni: "📍 Escribe tu municipio:",
     placeholder: "Buscar...",
     btn_confirmar: "✅ Confirmar selección",
-    ajustes_tit: "⚙️ Ajustes de búsqueda",
-    cambiar_muni: "Cambiar municipio:",
-    radio: "Radio de búsqueda:",
-    ordenar: "Ordenar por precio de:",
-    btn_buscar: "🔍 Buscar",
     error_con: "Error de conexión.",
     navegar: "Navegar",
     distancia_fmt: "📍 A {d} km",
@@ -51,10 +41,6 @@ let lang = localStorage.getItem("lang_gasolineras") || "eu";
 
 let tipoCombustible = localStorage.getItem("comb_gasolineras") || "Diésel";
 let radioKm = Number(localStorage.getItem("radio_gasolineras") || 5);
-
-let tipoCombustiblePendiente = tipoCombustible;
-let radioKmPendiente = radioKm;
-let municipioPendiente = null;
 
 let latRef = null;
 let lonRef = null;
@@ -79,15 +65,8 @@ const inputMunicipio = document.getElementById("input-municipio");
 const sugerenciasMunicipio = document.getElementById("sugerencias-municipio");
 const btnConfirmar = document.getElementById("btn-confirmar");
 
-const detallesAjustes = document.querySelector(".ajustes");
-const tituloAjustes = document.getElementById("titulo-ajustes");
-const labelCambiarMuni = document.getElementById("label-cambiar-muni");
 const inputMunicipioAjustes = document.getElementById("input-municipio-ajustes");
 const sugerenciasMunicipioAjustes = document.getElementById("sugerencias-municipio-ajustes");
-const labelRadio = document.getElementById("label-radio");
-const labelCombustible = document.getElementById("label-combustible");
-const btnBuscarAjustes = document.getElementById("btn-buscar-ajustes");
-const resumenFiltros = document.getElementById("resumen-filtros");
 const resultados = document.getElementById("resultados");
 
 function t() {
@@ -100,7 +79,7 @@ function escapeHtml(valor) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+    .replaceAll("'", "構造");
 }
 
 function mostrarPantalla(nombre) {
@@ -127,12 +106,6 @@ function aplicarIdioma() {
   textoMunicipio.textContent = t().escribe_muni;
   inputMunicipio.placeholder = t().placeholder;
   btnConfirmar.textContent = t().btn_confirmar;
-
-  tituloAjustes.textContent = t().ajustes_tit;
-  labelCambiarMuni.textContent = t().cambiar_muni;
-  labelRadio.textContent = t().radio;
-  labelCombustible.textContent = t().ordenar;
-  btnBuscarAjustes.textContent = t().btn_buscar;
 
   if (!pantallaResultados.classList.contains("hidden") && latRef !== null && lonRef !== null) {
     pintarResultados();
@@ -283,29 +256,20 @@ function guardarEstado() {
   localStorage.setItem("lang_gasolineras", lang);
 }
 
-function actualizarBotonesFiltrosAplicados() {
+function sincronizarFiltrosUI() {
+  if (muniRef && muniRef !== "GPS") {
+    inputMunicipioAjustes.value = muniRef;
+  } else {
+    inputMunicipioAjustes.value = "";
+  }
+
   document.querySelectorAll(".radio-btn").forEach(btn => {
-    btn.classList.toggle("active", Number(btn.dataset.radio) === radioKmPendiente);
+    btn.classList.toggle("active", Number(btn.dataset.radio) === radioKm);
   });
 
   document.querySelectorAll(".fuel-btn").forEach(btn => {
-    btn.classList.toggle("active", btn.dataset.fuel === tipoCombustiblePendiente);
+    btn.classList.toggle("active", btn.dataset.fuel === tipoCombustible);
   });
-}
-
-function prepararPendientesDesdeAplicados() {
-  municipioPendiente = muniRef;
-  radioKmPendiente = radioKm;
-  tipoCombustiblePendiente = tipoCombustible;
-
-  inputMunicipioAjustes.value = municipioPendiente || "";
-  actualizarBotonesFiltrosAplicados();
-}
-
-function cerrarAjustes() {
-  if (detallesAjustes) {
-    detallesAjustes.open = false;
-  }
 }
 
 function pintarResultados() {
@@ -330,8 +294,6 @@ function pintarResultados() {
 
       return a.distancia - b.distancia;
     });
-
-  resumenFiltros.innerHTML = `📍 <b>${escapeHtml(muniRef || "")}</b> | 🚗 <b>${radioKm} km</b> | ⛽ <b>${escapeHtml(tipoCombustible)}</b>`;
 
   if (filtradas.length === 0) {
     resultados.innerHTML = `<div class="mensaje">${escapeHtml(t().sin_resultados)}</div>`;
@@ -388,30 +350,7 @@ function buscarPorMunicipio(valor) {
 
   ocultarSugerencias();
   mostrarPantalla("resultados");
-  prepararPendientesDesdeAplicados();
-  pintarResultados();
-}
-
-function aplicarFiltrosPendientes() {
-  const municipioElegido = buscarMunicipioValido(inputMunicipioAjustes.value);
-
-  if (municipioElegido) {
-    const coords = obtenerCoordenadasMunicipio(municipioElegido);
-
-    if (coords) {
-      muniRef = municipioElegido;
-      latRef = coords.lat;
-      lonRef = coords.lon;
-    }
-  }
-
-  radioKm = radioKmPendiente;
-  tipoCombustible = tipoCombustiblePendiente;
-
-  ocultarSugerencias();
-  cerrarAjustes();
-  mostrarPantalla("resultados");
-  prepararPendientesDesdeAplicados();
+  sincronizarFiltrosUI();
   pintarResultados();
 }
 
@@ -466,7 +405,7 @@ function iniciarGeolocalizacion() {
         muniRef = municipioMasCercano(latRef, lonRef) || "GPS";
 
         mostrarPantalla("resultados");
-        prepararPendientesDesdeAplicados();
+        sincronizarFiltrosUI();
         pintarResultados();
       },
       () => {
@@ -568,7 +507,6 @@ inputMunicipio.addEventListener("input", () => {
 });
 
 inputMunicipioAjustes.addEventListener("input", () => {
-  municipioPendiente = inputMunicipioAjustes.value;
   pintarSugerencias(inputMunicipioAjustes, sugerenciasMunicipioAjustes);
 });
 
@@ -584,17 +522,22 @@ sugerenciasMunicipioAjustes.addEventListener("click", e => {
   const item = e.target.closest(".sugerencia-item");
   if (!item) return;
 
-  inputMunicipioAjustes.value = item.dataset.value;
-  municipioPendiente = item.dataset.value;
+  const municipioElegido = item.dataset.value;
+  const coords = obtenerCoordenadasMunicipio(municipioElegido);
+
+  if (coords) {
+    muniRef = municipioElegido;
+    latRef = coords.lat;
+    lonRef = coords.lon;
+  }
+
   ocultarSugerencias();
+  sincronizarFiltrosUI();
+  pintarResultados();
 });
 
 btnConfirmar.addEventListener("click", () => {
   buscarPorMunicipio(inputMunicipio.value);
-});
-
-btnBuscarAjustes.addEventListener("click", () => {
-  aplicarFiltrosPendientes();
 });
 
 inputMunicipio.addEventListener("keydown", e => {
@@ -607,31 +550,37 @@ inputMunicipio.addEventListener("keydown", e => {
 inputMunicipioAjustes.addEventListener("keydown", e => {
   if (e.key === "Enter") {
     e.preventDefault();
-    aplicarFiltrosPendientes();
+    const municipioElegido = buscarMunicipioValido(inputMunicipioAjustes.value);
+
+    if (municipioElegido) {
+      const coords = obtenerCoordenadasMunicipio(municipioElegido);
+      if (coords) {
+        muniRef = municipioElegido;
+        latRef = coords.lat;
+        lonRef = coords.lon;
+      }
+    }
+    ocultarSugerencias();
+    sincronizarFiltrosUI();
+    pintarResultados();
   }
 });
 
 document.querySelectorAll(".radio-btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    radioKmPendiente = Number(btn.dataset.radio);
-    actualizarBotonesFiltrosAplicados();
+    radioKm = Number(btn.dataset.radio);
+    sincronizarFiltrosUI();
+    pintarResultados();
   });
 });
 
 document.querySelectorAll(".fuel-btn").forEach(btn => {
   btn.addEventListener("click", () => {
-    tipoCombustiblePendiente = btn.dataset.fuel;
-    actualizarBotonesFiltrosAplicados();
+    tipoCombustible = btn.dataset.fuel;
+    sincronizarFiltrosUI();
+    pintarResultados();
   });
 });
-
-if (detallesAjustes) {
-  detallesAjustes.addEventListener("toggle", () => {
-    if (detallesAjustes.open) {
-      prepararPendientesDesdeAplicados();
-    }
-  });
-}
 
 document.addEventListener("click", e => {
   if (!e.target.closest(".autocomplete")) {
