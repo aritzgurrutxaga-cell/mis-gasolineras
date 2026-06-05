@@ -4,8 +4,7 @@ const TRAD = {
     btn_inicio: "📍 Erakutsi gasolindegiak",
     btn_inicio_sub: "Gomendagarria da kokapena onartzea bilatzeko",
     localizando: "⏳ Kokapena bilatzen...",
-    localizando_countdown: "⏳ Kokapena bilatzen... {s} segundo",
-    localizando_countdown_plural: "⏳ Kokapena bilatzen... {s} segundo",
+    localizando_largo: "⏳ Kokapena bilatzen... baimena eman baduzu, segundo batzuk behar izan ditzake.",
     escribe_muni: "📍 Idatzi zure udalerria:",
     placeholder: "Bilatu...",
     btn_confirmar: "🔍 Bilatu",
@@ -18,15 +17,15 @@ const TRAD = {
     navegar: "Nabigatu",
     distancia_fmt: "📍 {d} km-ra",
     sin_resultados: "Ez da gasolindegirik aurkitu hautatutako erradioan.",
-    municipio_no_valido: "Aukeratu zerrendako udalerri bat."
+    municipio_no_valido: "Aukeratu zerrendako udalerri bat.",
+    ubicacion_no_disponible: "Ezin izan da kokapena lortu. Bilatu udalerria eskuz."
   },
   es: {
     subtitulo: "Compara precios en tiempo real y ahorra en cada repostaje.",
     btn_inicio: "📍 Mostrar gasolineras",
-    btn_inicio_sub: "Es recomendable la ubicación para buscar",
+    btn_inicio_sub: "Es recomendable permitir la ubicación para buscar",
     localizando: "⏳ Localizando...",
-    localizando_countdown: "⏳ Localizando... {s} segundo",
-    localizando_countdown_plural: "⏳ Localizando... {s} segundos",
+    localizando_largo: "⏳ Localizando... si has permitido la ubicación, puede tardar unos segundos.",
     escribe_muni: "📍 Escribe tu municipio:",
     placeholder: "Buscar...",
     btn_confirmar: "✅ Confirmar selección",
@@ -39,18 +38,19 @@ const TRAD = {
     navegar: "Navegar",
     distancia_fmt: "📍 A {d} km",
     sin_resultados: "No se han encontrado gasolineras en el radio seleccionado.",
-    municipio_no_valido: "Selecciona un municipio de la lista."
+    municipio_no_valido: "Selecciona un municipio de la lista.",
+    ubicacion_no_disponible: "No se ha podido obtener la ubicación. Busca el municipio manualmente."
   }
 };
 
 let datos = [];
+let municipios = [];
 let lang = localStorage.getItem("lang_gasolineras") || "eu";
 let tipoCombustible = localStorage.getItem("comb_gasolineras") || "Diésel";
 let radioKm = Number(localStorage.getItem("radio_gasolineras") || 5);
 let latRef = null;
 let lonRef = null;
 let muniRef = null;
-let municipios = [];
 
 const pantallaInicio = document.getElementById("pantalla-inicio");
 const pantallaLocalizando = document.getElementById("pantalla-localizando");
@@ -67,13 +67,13 @@ const textoLocalizando = document.getElementById("texto-localizando");
 const textoMunicipio = document.getElementById("texto-municipio");
 
 const inputMunicipio = document.getElementById("input-municipio");
-const listaMunicipios = document.getElementById("lista-municipios");
+const sugerenciasMunicipio = document.getElementById("sugerencias-municipio");
 const btnConfirmar = document.getElementById("btn-confirmar");
 
 const tituloAjustes = document.getElementById("titulo-ajustes");
 const labelCambiarMuni = document.getElementById("label-cambiar-muni");
 const inputMunicipioAjustes = document.getElementById("input-municipio-ajustes");
-const listaMunicipiosAjustes = document.getElementById("lista-municipios-ajustes");
+const sugerenciasMunicipioAjustes = document.getElementById("sugerencias-municipio-ajustes");
 const labelRadio = document.getElementById("label-radio");
 const labelCombustible = document.getElementById("label-combustible");
 const btnBuscarAjustes = document.getElementById("btn-buscar-ajustes");
@@ -82,6 +82,15 @@ const resultados = document.getElementById("resultados");
 
 function t() {
   return TRAD[lang];
+}
+
+function escapeHtml(valor) {
+  return String(valor ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function mostrarPantalla(nombre) {
@@ -116,7 +125,7 @@ function aplicarIdioma() {
   labelCombustible.textContent = t().ordenar;
   btnBuscarAjustes.textContent = t().btn_buscar;
 
-  if (!pantallaResultados.classList.contains("hidden") && muniRef) {
+  if (!pantallaResultados.classList.contains("hidden") && latRef !== null && lonRef !== null) {
     pintarResultados();
   }
 }
@@ -158,26 +167,55 @@ function prepararDatos(raw) {
   }));
 }
 
-function rellenarMunicipios() {
-  municipios = [...new Set(datos.map(g => String(g["Municipio"])).filter(Boolean))].sort();
+function prepararMunicipios() {
+  municipios = [...new Set(datos.map(g => String(g["Municipio"] || "")).filter(Boolean))].sort();
+}
 
-  listaMunicipios.innerHTML = "";
-  listaMunicipiosAjustes.innerHTML = "";
+function obtenerSugerencias(valor) {
+  const q = normalizarTexto(valor);
+  if (!q) return [];
 
-  municipios.forEach(muni => {
-    const opt1 = document.createElement("option");
-    opt1.value = muni;
-    listaMunicipios.appendChild(opt1);
+  const empieza = municipios.filter(m => normalizarTexto(m).startsWith(q));
+  const contiene = municipios.filter(m => !normalizarTexto(m).startsWith(q) && normalizarTexto(m).includes(q));
 
-    const opt2 = document.createElement("option");
-    opt2.value = muni;
-    listaMunicipiosAjustes.appendChild(opt2);
-  });
+  return [...empieza, ...contiene].slice(0, 8);
+}
+
+function pintarSugerencias(input, contenedor) {
+  const sugerencias = obtenerSugerencias(input.value);
+
+  if (!sugerencias.length) {
+    contenedor.classList.add("hidden");
+    contenedor.innerHTML = "";
+    return;
+  }
+
+  contenedor.innerHTML = sugerencias.map(m => `
+    <div class="sugerencia-item" data-value="${escapeHtml(m)}">${escapeHtml(m)}</div>
+  `).join("");
+
+  contenedor.classList.remove("hidden");
+}
+
+function ocultarSugerencias() {
+  sugerenciasMunicipio.classList.add("hidden");
+  sugerenciasMunicipioAjustes.classList.add("hidden");
 }
 
 function buscarMunicipioValido(valor) {
-  const buscado = normalizarTexto(valor);
-  return municipios.find(m => normalizarTexto(m) === buscado) || null;
+  const q = normalizarTexto(valor);
+  if (!q) return null;
+
+  const exacto = municipios.find(m => normalizarTexto(m) === q);
+  if (exacto) return exacto;
+
+  const empieza = municipios.find(m => normalizarTexto(m).startsWith(q));
+  if (empieza) return empieza;
+
+  const contiene = municipios.find(m => normalizarTexto(m).includes(q));
+  if (contiene) return contiene;
+
+  return null;
 }
 
 function municipioMasCercano(lat, lon) {
@@ -238,6 +276,7 @@ function pintarResultados() {
   const colPrecio = tipoCombustible === "Diésel" ? "precio_diesel_num" : "precio_g95_num";
 
   const filtradas = datos
+    .filter(g => !Number.isNaN(g.lat_num) && !Number.isNaN(g.lon_num))
     .map(g => ({
       ...g,
       distancia: calcularDistancia(latRef, lonRef, g.lat_num, g.lon_num)
@@ -250,34 +289,34 @@ function pintarResultados() {
     })
     .slice(0, 20);
 
-  resumenFiltros.innerHTML = `📍 <b>${muniRef}</b> | 🚗 <b>${radioKm} km</b> | ⛽ <b>${tipoCombustible}</b>`;
+  resumenFiltros.innerHTML = `📍 <b>${escapeHtml(muniRef || "")}</b> | 🚗 <b>${radioKm} km</b> | ⛽ <b>${escapeHtml(tipoCombustible)}</b>`;
 
   if (filtradas.length === 0) {
-    resultados.innerHTML = `<div class="mensaje">${t().sin_resultados}</div>`;
+    resultados.innerHTML = `<div class="mensaje">${escapeHtml(t().sin_resultados)}</div>`;
     return;
   }
 
   resultados.innerHTML = filtradas.map(g => {
     const diesel = !Number.isNaN(g.precio_diesel_num) && g["Precio Gasoleo A"]
-      ? `${g["Precio Gasoleo A"]}€`
+      ? `${escapeHtml(g["Precio Gasoleo A"])}€`
       : "N/A";
 
     const g95 = !Number.isNaN(g.precio_g95_num) && g["Precio Gasolina 95 E5"]
-      ? `${g["Precio Gasolina 95 E5"]}€`
+      ? `${escapeHtml(g["Precio Gasolina 95 E5"])}€`
       : "N/A";
 
     const distancia = t().distancia_fmt.replace("{d}", g.distancia.toFixed(2));
-    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${g.lat_num},${g.lon_num}`;
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(g.lat_num + "," + g.lon_num)}`;
 
     return `
       <article class="gasolinera-card">
         <div>
-          <h3>${g["Rótulo"] || ""} - ${g["Municipio"] || ""}</h3>
+          <h3>${escapeHtml(g["Rótulo"] || "")} - ${escapeHtml(g["Municipio"] || "")}</h3>
           <p>⛽ <b>Diesel:</b> ${diesel} | <b>G95:</b> ${g95}</p>
-          <p class="distancia">${distancia}</p>
+          <p class="distancia">${escapeHtml(distancia)}</p>
         </div>
         <div>
-          <a class="btn-navegar" href="${mapsUrl}" target="_blank" rel="noopener noreferrer">${t().navegar}</a>
+          <a class="btn-navegar" href="${mapsUrl}" target="_blank" rel="noopener">${escapeHtml(t().navegar)}</a>
         </div>
       </article>
     `;
@@ -288,14 +327,16 @@ function buscarPorMunicipio(valor) {
   const municipio = buscarMunicipioValido(valor);
 
   if (!municipio) {
-    resultados.innerHTML = `<div class="mensaje">${t().municipio_no_valido}</div>`;
     mostrarPantalla("manual");
+    textoMunicipio.textContent = t().municipio_no_valido;
     return;
   }
 
   const coords = obtenerCoordenadasMunicipio(municipio);
+
   if (!coords) {
     mostrarPantalla("manual");
+    textoMunicipio.textContent = t().municipio_no_valido;
     return;
   }
 
@@ -303,56 +344,37 @@ function buscarPorMunicipio(valor) {
   latRef = coords.lat;
   lonRef = coords.lon;
 
+  ocultarSugerencias();
   mostrarPantalla("resultados");
   pintarResultados();
 }
 
 function iniciarGeolocalizacion() {
   mostrarPantalla("localizando");
+  textoLocalizando.textContent = t().localizando_largo;
 
   if (!navigator.geolocation) {
+    textoMunicipio.textContent = t().ubicacion_no_disponible;
     mostrarPantalla("manual");
     return;
   }
 
-  let segundos = 5;
-  textoLocalizando.textContent = t().localizando_countdown_plural.replace("{s}", segundos);
-
-  const intervalo = setInterval(() => {
-    segundos -= 1;
-
-    if (segundos <= 0) {
-      clearInterval(intervalo);
-      return;
-    }
-
-    const key = segundos === 1 ? "localizando_countdown" : "localizando_countdown_plural";
-    textoLocalizando.textContent = t()[key].replace("{s}", segundos);
-  }, 1000);
-
   navigator.geolocation.getCurrentPosition(
     pos => {
-      clearInterval(intervalo);
-
       latRef = pos.coords.latitude;
       lonRef = pos.coords.longitude;
-      muniRef = municipioMasCercano(latRef, lonRef);
-
-      if (!muniRef) {
-        mostrarPantalla("manual");
-        return;
-      }
+      muniRef = municipioMasCercano(latRef, lonRef) || "GPS";
 
       mostrarPantalla("resultados");
       pintarResultados();
     },
     () => {
-      clearInterval(intervalo);
+      textoMunicipio.textContent = t().ubicacion_no_disponible;
       mostrarPantalla("manual");
     },
     {
       enableHighAccuracy: true,
-      timeout: 12000,
+      timeout: 20000,
       maximumAge: 0
     }
   );
@@ -370,10 +392,10 @@ async function cargarDatos() {
     }
 
     datos = prepararDatos(payload.datos);
-    rellenarMunicipios();
+    prepararMunicipios();
     mostrarPantalla("inicio");
   } catch (e) {
-    pantallaInicio.innerHTML = `<h1 class="titulo">gasolina<span>.eus</span></h1><div class="mensaje">${t().error_con}</div>`;
+    pantallaInicio.innerHTML = `<h1 class="titulo">gasolina<span>.eus</span></h1><div class="mensaje">${escapeHtml(t().error_con)}</div>`;
     mostrarPantalla("inicio");
   }
 }
@@ -392,22 +414,47 @@ btnEs.addEventListener("click", () => {
 
 btnUbicacion.addEventListener("click", iniciarGeolocalizacion);
 
-btnConfirmar.addEventListener("click", () => {
-  buscarPorMunicipio(inputMunicipio.value);
+inputMunicipio.addEventListener("input", () => {
+  textoMunicipio.textContent = t().escribe_muni;
+  pintarSugerencias(inputMunicipio, sugerenciasMunicipio);
 });
 
-inputMunicipio.addEventListener("keydown", e => {
-  if (e.key === "Enter") {
-    buscarPorMunicipio(inputMunicipio.value);
-  }
+inputMunicipioAjustes.addEventListener("input", () => {
+  pintarSugerencias(inputMunicipioAjustes, sugerenciasMunicipioAjustes);
+});
+
+sugerenciasMunicipio.addEventListener("click", e => {
+  const item = e.target.closest(".sugerencia-item");
+  if (!item) return;
+  inputMunicipio.value = item.dataset.value;
+  buscarPorMunicipio(item.dataset.value);
+});
+
+sugerenciasMunicipioAjustes.addEventListener("click", e => {
+  const item = e.target.closest(".sugerencia-item");
+  if (!item) return;
+  inputMunicipioAjustes.value = item.dataset.value;
+  buscarPorMunicipio(item.dataset.value);
+});
+
+btnConfirmar.addEventListener("click", () => {
+  buscarPorMunicipio(inputMunicipio.value);
 });
 
 btnBuscarAjustes.addEventListener("click", () => {
   buscarPorMunicipio(inputMunicipioAjustes.value);
 });
 
+inputMunicipio.addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    buscarPorMunicipio(inputMunicipio.value);
+  }
+});
+
 inputMunicipioAjustes.addEventListener("keydown", e => {
   if (e.key === "Enter") {
+    e.preventDefault();
     buscarPorMunicipio(inputMunicipioAjustes.value);
   }
 });
@@ -424,6 +471,12 @@ document.querySelectorAll(".fuel-btn").forEach(btn => {
     tipoCombustible = btn.dataset.fuel;
     pintarResultados();
   });
+});
+
+document.addEventListener("click", e => {
+  if (!e.target.closest(".autocomplete")) {
+    ocultarSugerencias();
+  }
 });
 
 aplicarIdioma();
