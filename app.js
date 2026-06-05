@@ -366,7 +366,6 @@ function iniciarCuentaAtras() {
   }
 
   let segundos = 5;
-
   textoLocalizando.textContent = t().localizando_countdown_plural.replace("{s}", segundos);
 
   intervaloCuentaAtras = setInterval(() => {
