@@ -199,7 +199,9 @@ function pintarSugerencias(input, contenedor) {
 
 function ocultarSugerencias() {
   sugerenciasMunicipio.classList.add("hidden");
+  sugerenciasMunicipio.innerHTML = "";
   sugerenciasMunicipioAjustes.classList.add("hidden");
+  sugerenciasMunicipioAjustes.innerHTML = "";
 }
 
 function buscarMunicipioValido(valor) {
@@ -316,7 +318,7 @@ function pintarResultados() {
           <p class="distancia">${escapeHtml(distancia)}</p>
         </div>
         <div>
-          <a class="btn-navegar" href="${mapsUrl}" target="_blank" rel="noopener">${escapeHtml(t().navegar)}</a>
+          <a class="btn-navegar" href="${mapsUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(t().navegar)}</a>
         </div>
       </article>
     `;
@@ -380,22 +382,66 @@ function iniciarGeolocalizacion() {
   );
 }
 
+async function iniciarSegunPermisoUbicacion() {
+  if (!navigator.geolocation) {
+    mostrarPantalla("inicio");
+    return;
+  }
+
+  if (!navigator.permissions || !navigator.permissions.query) {
+    mostrarPantalla("inicio");
+    return;
+  }
+
+  try {
+    const permiso = await navigator.permissions.query({ name: "geolocation" });
+
+    if (permiso.state === "granted") {
+      iniciarGeolocalizacion();
+    } else {
+      mostrarPantalla("inicio");
+    }
+  } catch (e) {
+    mostrarPantalla("inicio");
+  }
+}
+
 async function cargarDatos() {
   try {
-    const res = await fetch("precios_gasolineras.json", { cache: "no-store" });
-    if (!res.ok) throw new Error("Error cargando JSON");
+    const res = await fetch("./precios_gasolineras.json?v=" + Date.now(), { cache: "no-store" });
+
+    if (!res.ok) {
+      throw new Error("No se encuentra precios_gasolineras.json");
+    }
 
     const payload = await res.json();
 
-    if (!payload.datos || !Array.isArray(payload.datos)) {
-      throw new Error("Formato JSON inválido");
+    let lista = [];
+
+    if (Array.isArray(payload)) {
+      lista = payload;
+    } else if (payload && Array.isArray(payload.datos)) {
+      lista = payload.datos;
+    } else if (payload && Array.isArray(payload.ListaEESSPrecio)) {
+      lista = payload.ListaEESSPrecio;
+    } else {
+      throw new Error("Formato JSON no reconocido");
     }
 
-    datos = prepararDatos(payload.datos);
+    datos = prepararDatos(lista);
     prepararMunicipios();
-    mostrarPantalla("inicio");
+
+    if (!datos.length || !municipios.length) {
+      throw new Error("JSON sin datos válidos");
+    }
+
+    iniciarSegunPermisoUbicacion();
   } catch (e) {
-    pantallaInicio.innerHTML = `<h1 class="titulo">gasolina<span>.eus</span></h1><div class="mensaje">${escapeHtml(t().error_con)}</div>`;
+    pantallaInicio.innerHTML = `
+      <h1 class="titulo">gasolina<span>.eus</span></h1>
+      <div class="mensaje">${escapeHtml(t().error_con)}</div>
+      <div class="mensaje">${escapeHtml(e.message)}</div>
+    `;
     mostrarPantalla("inicio");
   }
 }
