@@ -73,6 +73,7 @@ const inputMunicipio = document.getElementById("input-municipio");
 const sugerenciasMunicipio = document.getElementById("sugerencias-municipio");
 const btnConfirmar = document.getElementById("btn-confirmar");
 
+const detallesAjustes = document.querySelector(".ajustes");
 const tituloAjustes = document.getElementById("titulo-ajustes");
 const labelCambiarMuni = document.getElementById("label-cambiar-muni");
 const inputMunicipioAjustes = document.getElementById("input-municipio-ajustes");
@@ -269,6 +270,12 @@ function actualizarBotonesFiltros() {
   document.querySelectorAll(".fuel-btn").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.fuel === tipoCombustible);
   });
+}
+
+function cerrarAjustes() {
+  if (detallesAjustes) {
+    detallesAjustes.open = false;
+  }
 }
 
 function pintarResultados() {
@@ -519,6 +526,7 @@ sugerenciasMunicipioAjustes.addEventListener("click", e => {
   if (!item) return;
   inputMunicipioAjustes.value = item.dataset.value;
   buscarPorMunicipio(item.dataset.value);
+  cerrarAjustes();
 });
 
 btnConfirmar.addEventListener("click", () => {
@@ -527,6 +535,7 @@ btnConfirmar.addEventListener("click", () => {
 
 btnBuscarAjustes.addEventListener("click", () => {
   buscarPorMunicipio(inputMunicipioAjustes.value);
+  cerrarAjustes();
 });
 
 inputMunicipio.addEventListener("keydown", e => {
@@ -540,6 +549,7 @@ inputMunicipioAjustes.addEventListener("keydown", e => {
   if (e.key === "Enter") {
     e.preventDefault();
     buscarPorMunicipio(inputMunicipioAjustes.value);
+    cerrarAjustes();
   }
 });
 
