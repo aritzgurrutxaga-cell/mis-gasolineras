@@ -249,4 +249,70 @@ body {
   padding: 0.8rem;
   margin-bottom: 0.7rem;
   display: grid;
+  grid-template-columns: 2.5fr 1.5fr;
+  gap: 1rem;
+  align-items: center;
+}
 
+.gasolinera-card h3 {
+  margin: 0 0 0.4rem 0;
+  color: #1e293b;
+  font-size: 1.1rem;
+}
+
+.gasolinera-card p {
+  margin: 0.25rem 0;
+  color: #334155;
+  font-size: 0.95rem;
+}
+
+.gasolinera-card .distancia {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.btn-navegar {
+  width: 100%;
+  min-height: 42px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #d8e0ea;
+  color: #1e293b;
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mensaje {
+  text-align: center;
+  color: #64748b;
+  padding: 1rem;
+}
+
+@media (max-width: 520px) {
+  .app {
+    padding-left: 0.8rem;
+    padding-right: 0.8rem;
+  }
+
+  .gasolinera-card {
+    grid-template-columns: 1fr;
+  }
+
+  .btn-navegar {
+    min-height: 46px;
+  }
+
+  .sugerencias {
+    bottom: calc(100% + 8px);
+    max-height: 260px;
+  }
+
+  .sugerencia-item {
+    min-height: 50px;
+    padding: 13px 14px;
+  }
+}
