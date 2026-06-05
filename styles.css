@@ -228,9 +228,9 @@ body {
 .fuel-btn {
   flex: 1;
   min-height: 38px;
-  border: 1px solid #cbd5e1; /* Línea de trazado exterior sutil */
+  border: 1px solid #cbd5e1;
   border-radius: 10px;
-  background: #f1f5f9; /* Mismo color que el fondo de la web */
+  background: #f1f5f9;
   color: #475569;
   font-family: 'Poppins', sans-serif;
   font-weight: 600;
@@ -247,9 +247,9 @@ body {
 
 .radio-btn.active,
 .fuel-btn.active {
-  background: rgba(30, 41, 59, 0.12); /* Sombreado amable y traslúcido */
-  border-color: #cbd5e1; /* Mantiene el trazado sutil, eliminando la línea negra */
-  color: #1e293b;
+  background: rgba(239, 68, 68, 0.1); /* Selección roja sutil y transparente */
+  border-color: #ef4444; /* Trazado a juego con el rojo del logo */
+  color: #ef4444; /* Texto en rojo para mayor consistencia */
   box-shadow: none;
 }
 
@@ -305,8 +305,8 @@ body {
   width: 100%;
   min-height: 40px;
   border-radius: 10px;
-  background: #f1f5f9; /* Mismo color que el fondo de la web */
-  border: 1px solid #cbd5e1; /* Misma línea de trazado exterior sutil */
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
   color: #1e293b;
   text-decoration: none;
   font-weight: 700;
