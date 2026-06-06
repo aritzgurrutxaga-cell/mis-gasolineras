@@ -45,7 +45,7 @@ let datos = [];
 let municipios = [];
 
 // Blindaje de localStorage y validación de variables
-let lang = "eu";
+let lang = "es";
 let tipoCombustible = "Diésel";
 let radioKm = 5;
 
@@ -97,15 +97,15 @@ function t() {
   return TRAD[lang];
 }
 
-// Función corregida: Evita errores de sintaxis y escapa código HTML de verdad
+// Función corregida y validada para escapar HTML
 function escapeHtml(valor) {
   const str = valor != null ? String(valor) : "";
   return str
-    .replace(/&/g, "&")
-    .replace(/</g, "<")
-    .replace(/>/g, ">")
-    .replace(/"/g, """)
-    .replace(/'/g, "'");
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function mostrarPantalla(nombre) {
@@ -350,7 +350,8 @@ function pintarResultados() {
       : "N/A";
 
     const distancia = t().distancia_fmt.replace("{d}", g.distancia.toFixed(2));
-    const mapsUrl = `https://maps.google.com/?q=${encodeURIComponent(g.lat_num + "," + g.lon_num)}`;
+    
+    const mapsUrl = `http://googleusercontent.com/maps.google.com/${encodeURIComponent(g.lat_num + "," + g.lon_num)}`;
 
     return `
       <article class="gasolinera-card">
@@ -639,7 +640,7 @@ document.addEventListener("click", e => {
   }
 });
 
-// NUEVO: Registro del Service Worker
+// NUEVO: Registro del Service Worker para convertir la web en PWA
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('./sw.js')
