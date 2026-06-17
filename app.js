@@ -99,11 +99,11 @@ function t() {
 function escapeHtml(valor) {
   const str = valor != null ? String(valor) : "";
   return str
-    .replace(/&/g, "&")
-    .replace(/</g, "<")
-    .replace(/>/g, ">")
-    .replace(/"/g, """)
-    .replace(/'/g, "'");
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function mostrarPantalla(nombre) {
@@ -349,7 +349,8 @@ function pintarResultados() {
 
     const distancia = t().distancia_fmt.replace("{d}", g.distancia.toFixed(2));
     
-    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${g.lat_num},${g.lon_num}`;
+    // Enlace de mapas corregido para utilizar correctamente la latitud
+    const mapsUrl = `http://googleusercontent.com/maps.google.com/${g.lat_num},${g.lon_num}`;
 
     return `
       <article class="gasolinera-card">
