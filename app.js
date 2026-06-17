@@ -44,7 +44,7 @@ const TRAD = {
 let datos = [];
 let municipios = [];
 
-let lang = "es";
+let lang = "eu";
 let tipoCombustible = "Diésel";
 let radioKm = 5;
 
@@ -99,11 +99,11 @@ function t() {
 function escapeHtml(valor) {
   const str = valor != null ? String(valor) : "";
   return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+    .replace(/&/g, "&")
+    .replace(/</g, "<")
+    .replace(/>/g, ">")
+    .replace(/"/g, """)
+    .replace(/'/g, "'");
 }
 
 function mostrarPantalla(nombre) {
@@ -349,7 +349,7 @@ function pintarResultados() {
 
     const distancia = t().distancia_fmt.replace("{d}", g.distancia.toFixed(2));
     
-    const mapsUrl = `http://googleusercontent.com/maps.google.com/${encodeURIComponent(g.lat_num + "," + g.lon_num)}`;
+    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${g.lat_num},${g.lon_num}`;
 
     return `
       <article class="gasolinera-card">
@@ -638,34 +638,63 @@ document.addEventListener("click", e => {
   }
 });
 
-// Controladores para la instalación nativa de la PWA
+// --- NUEVOS CONTROLADORES DE INSTALACIÓN PWA ---
 let deferredPrompt = null;
-const btnInstalarApp = document.getElementById("btn-instalar-app");
+const pwaBanner = document.getElementById("pwa-banner");
+const pwaInstallBtn = document.getElementById("pwa-install-btn");
+const pwaCloseBtn = document.getElementById("pwa-close-btn");
+const pwaInstruction = document.getElementById("pwa-instruction");
+
+function isAppInstalled() {
+  return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+}
+
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+if (isIOS && !isAppInstalled()) {
+  if (pwaInstruction) {
+    pwaInstruction.textContent = "Toca el icono de Compartir y selecciona Añadir a la pantalla de inicio para instalar la app.";
+    pwaInstruction.classList.add("ios-text");
+  }
+  if (pwaInstallBtn) {
+    pwaInstallBtn.style.display = "none";
+  }
+  if (pwaBanner) {
+    setTimeout(() => pwaBanner.classList.remove("hidden"), 1500);
+  }
+}
 
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
-  if (btnInstalarApp) {
-    btnInstalarApp.classList.remove("hidden");
+  
+  if (!isIOS && !isAppInstalled() && pwaBanner) {
+    setTimeout(() => pwaBanner.classList.remove("hidden"), 1500);
   }
 });
 
-if (btnInstalarApp) {
-  btnInstalarApp.addEventListener('click', async () => {
+if (pwaInstallBtn) {
+  pwaInstallBtn.addEventListener('click', async () => {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    console.log(`Instalación: ${outcome}`);
+    console.log(`Resultado de instalación: ${outcome}`);
     deferredPrompt = null;
-    btnInstalarApp.classList.add("hidden");
+    pwaBanner.classList.add("hidden");
+  });
+}
+
+if (pwaCloseBtn) {
+  pwaCloseBtn.addEventListener('click', () => {
+    pwaBanner.classList.add("hidden");
   });
 }
 
 window.addEventListener('appinstalled', () => {
-  console.log('PWA instalada.');
+  console.log('Aplicación instalada correctamente.');
   deferredPrompt = null;
-  if (btnInstalarApp) {
-    btnInstalarApp.classList.add("hidden");
+  if (pwaBanner) {
+    pwaBanner.classList.add("hidden");
   }
 });
 
